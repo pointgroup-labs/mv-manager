@@ -1,0 +1,107 @@
+---
+# System packages and kernel tuning for Monad node
+
+- name: Install packages
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  loop: "{{ required_packages }}"
+  tags: [packages]
+
+- name: Install Ubuntu 24.04 packages
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ ubuntu_2404_packages }}"
+  when: ansible_distribution_version is version('24.04', '>=')
+  ignore_errors: yes
+  tags: [packages]
+
+# Hugepages required for monad performance
+- name: Copy hugepages service
+  ansible.builtin.copy:
+    src: set-hugepages.service
+    dest: /etc/systemd/system/set-hugepages.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Start set-hugepages service
+  tags: [hugepages]
+
+- name: Enable hugepages service
+  ansible.builtin.systemd:
+    name: set-hugepages
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  tags: [hugepages]
+
+- name: Configure sysctl
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/99-monad.conf
+    reload: yes
+    state: present
+  loop: "{{ sysctl_params | dict2items }}"
+  tags: [sysctl]
+
+# TrieDB setup - partitions dedicated NVMe for state storage
+- name: Setup TrieDB disk
+  ansible.builtin.include_tasks: prepare_triedb_disk.yml
+  when: setup_triedb | default(false) | bool
+  tags: [triedb]
+
+- name: Setup TrieDB loop device
+  ansible.builtin.include_tasks: prepare_triedb_loop.yml
+  when: setup_triedb_loop | default(false) | bool
+  tags: [triedb]
+
+# Drop malformed UDP packets to prevent DoS
+- name: Drop small UDP packets rule
+  ansible.builtin.blockinfile:
+    path: /etc/ufw/before.rules
+    marker: "# {mark} ANSIBLE: Drop small UDP on {{ monad_p2p_port }}"
+    insertbefore: "^COMMIT"
+    block: |
+      -A ufw-before-input -p udp --dport {{ monad_p2p_port }} -m length --length 0:1400 -j DROP
+  notify: Reload UFW
+  tags: [firewall]
+
+- name: Create monad group
+  ansible.builtin.group:
+    name: "{{ monad_group }}"
+    state: present
+  tags: [user]
+
+- name: Create monad user
+  ansible.builtin.user:
+    name: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    shell: /bin/bash
+    home: "{{ monad_home }}"
+    create_home: yes
+    system: yes
+    state: present
+  tags: [user]
+
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0755'
+  loop: "{{ monad_directories }}"
+  tags: [directories]
+
+- name: Secure key directory
+  ansible.builtin.file:
+    path: "{{ monad_key_dir }}"
+    state: directory
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0700'
+  tags: [directories]

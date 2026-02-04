@@ -1,0 +1,77 @@
+# Backup role - Automated backups for Monad validator
+---
+
+- name: Create backup directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0750'
+  loop:
+    - "{{ backup_destination }}"
+    - "{{ backup_destination }}/keys"
+    - "{{ backup_destination }}/config"
+    - "{{ backup_destination }}/data"
+  tags: [backup]
+
+- name: Create backup script
+  template:
+    src: backup.sh.j2
+    dest: "{{ monad_home }}/scripts/backup.sh"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0750'
+  tags: [backup]
+
+- name: Create restore script
+  template:
+    src: restore.sh.j2
+    dest: "{{ monad_home }}/scripts/restore.sh"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0750'
+  tags: [backup]
+
+- name: Create key backup script (encrypted)
+  template:
+    src: backup-keys.sh.j2
+    dest: "{{ monad_home }}/scripts/backup-keys.sh"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0700'
+  tags: [backup]
+
+- name: Create backup cleanup script
+  template:
+    src: cleanup-backups.sh.j2
+    dest: "{{ monad_home }}/scripts/cleanup-backups.sh"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0750'
+  tags: [backup]
+
+- name: Set up automated backup cron job
+  cron:
+    name: "Monad config backup"
+    minute: "0"
+    hour: "2"
+    job: "{{ monad_home }}/scripts/backup.sh >> {{ monad_logs_dir }}/backup.log 2>&1"
+    user: "{{ monad_user }}"
+  when: backup_enabled
+  tags: [backup]
+
+- name: Set up backup cleanup cron job
+  cron:
+    name: "Monad backup cleanup"
+    minute: "30"
+    hour: "3"
+    job: "{{ monad_home }}/scripts/cleanup-backups.sh >> {{ monad_logs_dir }}/backup.log 2>&1"
+    user: "{{ monad_user }}"
+  when: backup_enabled
+  tags: [backup]
+
+- name: Perform initial key backup
+  command: "{{ monad_home }}/scripts/backup-keys.sh"
+  become_user: "{{ monad_user }}"
+  tags: [backup, keys]

@@ -1,0 +1,268 @@
+# Validator role - Register and manage validator
+---
+
+# =============================================================================
+# PRE-CHECKS
+# =============================================================================
+- name: Ensure node is synced before validator setup
+  uri:
+    url: "http://localhost:{{ monad_rpc_port }}"
+    method: POST
+    body: '{"jsonrpc":"2.0","method":"eth_syncing","id":1}'
+    body_format: json
+    headers:
+      Content-Type: "application/json"
+  register: sync_status
+  failed_when: false
+  tags: [validator, check]
+
+- name: Warn if node is still syncing
+  debug:
+    msg: "WARNING: Node is still syncing. Registration will fail until sync completes."
+  when: sync_status.json.result != false
+  tags: [validator, check]
+
+# =============================================================================
+# STAKING CLI INSTALLATION
+# =============================================================================
+- name: Clone staking CLI repository
+  git:
+    repo: "{{ staking_cli_repo }}"
+    dest: "{{ monad_home }}/staking-sdk-cli"
+    version: "{{ staking_cli_version }}"
+    force: no
+    update: yes
+  become_user: "{{ monad_user }}"
+  register: staking_cli_clone
+  tags: [validator, install]
+
+- name: Check if requirements.txt exists
+  stat:
+    path: "{{ monad_home }}/staking-sdk-cli/requirements.txt"
+  register: requirements_file
+  tags: [validator, install]
+
+- name: Check if setup.py or pyproject.toml exists
+  stat:
+    path: "{{ monad_home }}/staking-sdk-cli/{{ item }}"
+  register: setup_files
+  loop:
+    - setup.py
+    - pyproject.toml
+  tags: [validator, install]
+
+- name: Create Python virtual environment for staking CLI
+  command: python3 -m venv {{ monad_home }}/staking-sdk-cli/cli-venv
+  args:
+    creates: "{{ monad_home }}/staking-sdk-cli/cli-venv"
+  become_user: "{{ monad_user }}"
+  tags: [validator, install]
+
+- name: Upgrade pip in virtualenv
+  pip:
+    name: pip
+    state: latest
+    virtualenv: "{{ monad_home }}/staking-sdk-cli/cli-venv"
+  become_user: "{{ monad_user }}"
+  tags: [validator, install]
+
+- name: Install staking CLI dependencies (if requirements.txt exists)
+  pip:
+    requirements: "{{ monad_home }}/staking-sdk-cli/requirements.txt"
+    virtualenv: "{{ monad_home }}/staking-sdk-cli/cli-venv"
+  become_user: "{{ monad_user }}"
+  when: requirements_file.stat.exists
+  tags: [validator, install]
+
+- name: Install staking CLI package (if setup.py exists)
+  pip:
+    name: "{{ monad_home }}/staking-sdk-cli"
+    virtualenv: "{{ monad_home }}/staking-sdk-cli/cli-venv"
+    editable: yes
+  become_user: "{{ monad_user }}"
+  when: setup_files.results | selectattr('stat.exists', 'equalto', true) | list | length > 0
+  ignore_errors: yes
+  tags: [validator, install]
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+- name: Create staking CLI configuration
+  template:
+    src: staking-config.toml.j2
+    dest: "{{ monad_home }}/staking-sdk-cli/config.toml"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0600'
+  no_log: true
+  tags: [validator, config]
+
+# =============================================================================
+# KEY MANAGEMENT
+# =============================================================================
+- name: Check if SECP keystore exists
+  stat:
+    path: "{{ monad_config_dir }}/id-secp"
+  register: secp_keystore
+  tags: [validator, keys]
+
+- name: Check if BLS keystore exists
+  stat:
+    path: "{{ monad_config_dir }}/id-bls"
+  register: bls_keystore
+  tags: [validator, keys]
+
+- name: Extract SECP private key from keystore
+  shell: |
+    set -e
+    export KEYSTORE_PASSWORD="{{ vault_keystore_password }}"
+    monad-keystore recover \
+      --password "$KEYSTORE_PASSWORD" \
+      --keystore-path {{ monad_config_dir }}/id-secp \
+      --key-type secp 2>/dev/null | sed -n 's/.*Private key: \([a-fA-F0-9]\{64\}\).*/\1/p'
+  args:
+    executable: /bin/bash
+  register: secp_key_result
+  become_user: "{{ monad_user }}"
+  no_log: true
+  when:
+    - secp_keystore.stat.exists
+    - (vault_secp_private_key is not defined) or (vault_secp_private_key == "") or (vault_secp_private_key == "YOUR_SECP_PRIVATE_KEY_HERE")
+  failed_when: false
+  changed_when: false
+  tags: [validator, keys]
+
+- name: Extract BLS private key from keystore
+  shell: |
+    set -e
+    export KEYSTORE_PASSWORD="{{ vault_keystore_password }}"
+    monad-keystore recover \
+      --password "$KEYSTORE_PASSWORD" \
+      --keystore-path {{ monad_config_dir }}/id-bls \
+      --key-type bls 2>/dev/null | sed -n 's/.*Private key: \(0x[a-fA-F0-9]\{64\}\).*/\1/p'
+  args:
+    executable: /bin/bash
+  register: bls_key_result
+  become_user: "{{ monad_user }}"
+  no_log: true
+  when:
+    - bls_keystore.stat.exists
+    - (vault_bls_private_key is not defined) or (vault_bls_private_key == "") or (vault_bls_private_key == "0xYOUR_BLS_PRIVATE_KEY_HERE")
+  failed_when: false
+  changed_when: false
+  tags: [validator, keys]
+
+- name: Set key facts
+  set_fact:
+    effective_secp_key: "{{ secp_key_result.stdout | default(vault_secp_private_key, true) }}"
+    effective_bls_key: "{{ bls_key_result.stdout | default(vault_bls_private_key, true) }}"
+  no_log: true
+  tags: [validator, keys]
+
+- name: Validate SECP key format
+  fail:
+    msg: "Invalid SECP private key format. Must be 64 hex characters without 0x prefix."
+  when:
+    - register_validator | default(false)
+    - effective_secp_key | default('') | length != 64
+  tags: [validator, keys]
+
+- name: Validate BLS key format
+  fail:
+    msg: "Invalid BLS private key format. Must be 66 characters (0x + 64 hex chars)."
+  when:
+    - register_validator | default(false)
+    - effective_bls_key | default('') | length != 66
+  tags: [validator, keys]
+
+# =============================================================================
+# VALIDATOR SCRIPTS
+# =============================================================================
+- name: Create validator registration script
+  template:
+    src: register-validator.sh.j2
+    dest: "{{ monad_home }}/scripts/register-validator.sh"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0700'
+  tags: [validator, scripts]
+
+- name: Create validator status check script
+  template:
+    src: check-validator-status.sh.j2
+    dest: "{{ monad_home }}/scripts/check-validator-status.sh"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0755'
+  tags: [validator, scripts]
+
+- name: Create validator management scripts
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ monad_home }}/scripts/{{ item.dest }}"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0755'
+  loop:
+    - { src: 'delegate.sh.j2', dest: 'delegate.sh' }
+    - { src: 'claim-rewards.sh.j2', dest: 'claim-rewards.sh' }
+    - { src: 'compound-rewards.sh.j2', dest: 'compound-rewards.sh' }
+  tags: [validator, scripts]
+
+# =============================================================================
+# VALIDATOR REGISTRATION
+# =============================================================================
+- name: Verify sync before registration
+  uri:
+    url: "http://localhost:{{ monad_rpc_port }}"
+    method: POST
+    body: '{"jsonrpc":"2.0","method":"eth_syncing","id":1}'
+    body_format: json
+    headers:
+      Content-Type: "application/json"
+  register: final_sync_check
+  when: register_validator | default(false)
+  tags: [validator, register]
+
+- name: Fail if trying to register while syncing
+  fail:
+    msg: "Cannot register validator while node is syncing. Wait for sync to complete."
+  when:
+    - register_validator | default(false)
+    - final_sync_check.json.result != false
+  tags: [validator, register]
+
+- name: Register validator
+  shell: |
+    set -e
+    source {{ monad_home }}/staking-sdk-cli/cli-venv/bin/activate
+    cd {{ monad_home }}/staking-sdk-cli
+    python staking-cli/main.py add-validator \
+      --secp-privkey "{{ effective_secp_key }}" \
+      --bls-privkey "{{ effective_bls_key }}" \
+      --auth-address "{{ auth_address }}" \
+      --amount {{ validator_stake_amount }} \
+      --config-path config.toml
+  args:
+    executable: /bin/bash
+  become_user: "{{ monad_user }}"
+  register: validator_registration
+  when: register_validator | default(false)
+  no_log: true
+  tags: [validator, register]
+
+- name: Display validator registration result
+  debug:
+    msg: |
+      Validator Registration Result:
+      {{ validator_registration.stdout_lines | default(['Registration not executed']) | join('\n') }}
+  when: register_validator | default(false)
+  tags: [validator, register]
+
+- name: Check for registration success
+  debug:
+    msg: "Validator registration completed. Check status with: ~/scripts/check-validator-status.sh"
+  when:
+    - register_validator | default(false)
+    - validator_registration.rc == 0
+  tags: [validator, register]

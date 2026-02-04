@@ -1,0 +1,94 @@
+# Monitoring role - Set up Prometheus node exporter and alerting
+---
+
+- name: Create monitoring user
+  user:
+    name: prometheus
+    system: yes
+    shell: /bin/false
+    create_home: no
+  tags: [monitoring]
+
+- name: Download node_exporter
+  get_url:
+    url: "https://github.com/prometheus/node_exporter/releases/download/v1.7.0/node_exporter-1.7.0.linux-amd64.tar.gz"
+    dest: /tmp/node_exporter.tar.gz
+    mode: '0644'
+  tags: [monitoring]
+
+- name: Extract node_exporter
+  unarchive:
+    src: /tmp/node_exporter.tar.gz
+    dest: /tmp
+    remote_src: yes
+  tags: [monitoring]
+
+- name: Install node_exporter binary
+  copy:
+    src: /tmp/node_exporter-1.7.0.linux-amd64/node_exporter
+    dest: /usr/local/bin/node_exporter
+    remote_src: yes
+    mode: '0755'
+    owner: root
+    group: root
+  tags: [monitoring]
+
+- name: Create node_exporter systemd service
+  template:
+    src: node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+    mode: '0644'
+  notify: Restart node_exporter
+  tags: [monitoring]
+
+- name: Enable and start node_exporter
+  systemd:
+    name: node_exporter
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  tags: [monitoring]
+
+- name: Create monad metrics exporter script
+  template:
+    src: monad-metrics.sh.j2
+    dest: "{{ monad_home }}/scripts/monad-metrics.sh"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0755'
+  tags: [monitoring]
+
+- name: Create health check script
+  template:
+    src: health-check.sh.j2
+    dest: "{{ monad_home }}/scripts/health-check.sh"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0755'
+  tags: [monitoring]
+
+- name: Create alerting script
+  template:
+    src: alert.sh.j2
+    dest: "{{ monad_home }}/scripts/alert.sh"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0755'
+  tags: [monitoring]
+
+- name: Set up health check cron job
+  cron:
+    name: "Monad health check"
+    minute: "*/5"
+    job: "{{ monad_home }}/scripts/health-check.sh >> {{ monad_logs_dir }}/health-check.log 2>&1"
+    user: "{{ monad_user }}"
+  tags: [monitoring]
+
+- name: Clean up downloaded files
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/node_exporter.tar.gz
+    - /tmp/node_exporter-1.7.0.linux-amd64
+  tags: [monitoring]

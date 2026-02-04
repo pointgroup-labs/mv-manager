@@ -1,0 +1,13 @@
+{{ monad_logs_dir }}/*.log {
+    daily
+    missingok
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    create 0640 {{ monad_user }} {{ monad_group }}
+    sharedscripts
+    postrotate
+        systemctl reload monad-node 2>/dev/null || true
+    endscript
+}

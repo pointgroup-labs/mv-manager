@@ -1,0 +1,11 @@
+[Unit]
+Description=Set Hugepages for Monad
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'echo 2048 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

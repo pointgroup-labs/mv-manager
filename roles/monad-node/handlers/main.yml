@@ -1,0 +1,18 @@
+---
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Restart monad-node
+  service:
+    name: monad-node
+    state: restarted
+    enabled: yes
+
+- name: Reload monad config
+  command: >
+    monad-debug-node
+    --control-panel-ipc-path {{ monad_home }}/monad-bft/controlpanel.sock
+    reload-config
+  become_user: "{{ monad_user }}"
+  ignore_errors: yes

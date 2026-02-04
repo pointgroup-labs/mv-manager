@@ -1,0 +1,54 @@
+---
+- name: Check device exists
+  ansible.builtin.stat:
+    path: "{{ triedb_config.drive }}"
+  register: triedb_device_stat
+
+- name: Fail if device missing
+  ansible.builtin.fail:
+    msg: "Device {{ triedb_config.drive }} not found"
+  when: not triedb_device_stat.stat.exists
+
+- name: Create GPT partition
+  community.general.parted:
+    device: "{{ triedb_config.drive }}"
+    label: gpt
+    number: "{{ triedb_config.partition_number }}"
+    name: "{{ triedb_config.partition_name }}"
+    part_start: 0%
+    part_end: 100%
+    state: present
+
+- name: Get partition UUID
+  ansible.builtin.shell: |
+    set -o pipefail
+    lsblk -o PARTUUID {{ triedb_config.drive }} | tail -n 1
+  args:
+    executable: /bin/bash
+  register: partuuid_result
+  changed_when: false
+
+- name: Set partition UUID
+  ansible.builtin.set_fact:
+    partition_uuid: "{{ partuuid_result.stdout | trim }}"
+
+- name: Create udev rule
+  ansible.builtin.copy:
+    dest: /etc/udev/rules.d/99-triedb.rules
+    content: |
+      ENV{ID_PART_ENTRY_UUID}=="{{ partition_uuid }}", MODE="0666", SYMLINK+="{{ triedb_config.partition_name }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Trigger udev rules
+    - Reload udev rules
+
+- name: Apply udev rules
+  ansible.builtin.meta: flush_handlers
+
+- name: Verify symlink
+  ansible.builtin.stat:
+    path: "{{ triedb_config.path }}"
+  register: triedb_symlink
+  failed_when: not triedb_symlink.stat.exists

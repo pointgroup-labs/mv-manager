@@ -1,0 +1,210 @@
+---
+- name: Verify OS is Ubuntu
+  fail:
+    msg: "Only Ubuntu supported. Detected: {{ ansible_distribution }}"
+  when: ansible_distribution != "Ubuntu"
+  tags: [preflight]
+
+- name: Verify Ubuntu 20.04+
+  fail:
+    msg: "Ubuntu 20.04+ required. Detected: {{ ansible_distribution_version }}"
+  when: ansible_distribution_version is version('20.04', '<')
+  tags: [preflight]
+
+- name: Check disk space
+  shell: df -BG / | awk 'NR==2 {print $4}' | tr -d 'G'
+  register: root_disk_space
+  changed_when: false
+  tags: [preflight]
+
+- name: Warn if low disk space
+  debug:
+    msg: "Low disk: {{ root_disk_space.stdout }}GB. Recommended: 500GB+"
+  when: root_disk_space.stdout | int < 100
+  tags: [preflight]
+
+- name: Check RAM
+  fail:
+    msg: "32GB RAM required. Detected: {{ ansible_memtotal_mb }}MB"
+  when: ansible_memtotal_mb < 30000
+  tags: [preflight]
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  tags: [packages]
+
+- name: Upgrade packages
+  apt:
+    upgrade: dist
+    autoremove: yes
+  tags: [packages]
+
+- name: Install packages
+  apt:
+    name:
+      - curl
+      - wget
+      - git
+      - vim
+      - htop
+      - iotop
+      - iftop
+      - tmux
+      - jq
+      - unzip
+      - build-essential
+      - python3
+      - python3-pip
+      - python3-venv
+      - ca-certificates
+      - gnupg
+      - lsb-release
+      - ufw
+      - fail2ban
+      - logrotate
+      - chrony
+      - acl
+      - openssl
+      - pv
+    state: present
+  tags: [packages]
+
+- name: Create monad group
+  group:
+    name: "{{ monad_group }}"
+    state: present
+  tags: [user]
+
+- name: Create monad user
+  user:
+    name: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    groups: sudo
+    shell: /bin/bash
+    home: "{{ monad_home }}"
+    create_home: yes
+    state: present
+  tags: [user]
+
+- name: Configure sudoers
+  template:
+    src: sudoers-monad.j2
+    dest: /etc/sudoers.d/monad
+    mode: '0440'
+    validate: 'visudo -cf %s'
+  tags: [user]
+
+- name: Create directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0755'
+  loop:
+    - "{{ monad_home }}"
+    - "{{ monad_data_dir }}"
+    - "{{ monad_logs_dir }}"
+    - "{{ monad_home }}/backups"
+    - "{{ monad_home }}/scripts"
+  tags: [directories]
+
+- name: Configure sysctl
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/99-monad.conf
+    reload: yes
+    state: present
+  loop: "{{ sysctl_params | dict2items }}"
+  tags: [sysctl]
+
+- name: Harden SSH
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+  loop:
+    - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin {{ ssh_permit_root_login }}' }
+    - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication {{ ssh_password_authentication }}' }
+    - { regexp: '^#?PubkeyAuthentication', line: 'PubkeyAuthentication yes' }
+    - { regexp: '^#?X11Forwarding', line: 'X11Forwarding no' }
+    - { regexp: '^#?MaxAuthTries', line: 'MaxAuthTries 3' }
+  notify: Restart SSH
+  tags: [security]
+
+- name: Configure UFW defaults
+  ufw:
+    direction: "{{ item.direction }}"
+    policy: "{{ item.policy }}"
+  loop:
+    - { direction: 'incoming', policy: 'deny' }
+    - { direction: 'outgoing', policy: 'allow' }
+  tags: [firewall]
+
+- name: Allow SSH
+  ufw:
+    rule: allow
+    port: "{{ ssh_port | string }}"
+    proto: tcp
+  tags: [firewall]
+
+- name: Allow TCP ports
+  ufw:
+    rule: allow
+    port: "{{ item | string }}"
+    proto: tcp
+  loop: "{{ firewall_allowed_tcp_ports }}"
+  tags: [firewall]
+
+- name: Allow UDP ports
+  ufw:
+    rule: allow
+    port: "{{ item | string }}"
+    proto: udp
+  loop: "{{ firewall_allowed_udp_ports }}"
+  tags: [firewall]
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+  tags: [firewall]
+
+- name: Configure fail2ban
+  template:
+    src: jail.local.j2
+    dest: /etc/fail2ban/jail.local
+    mode: '0644'
+  notify: Restart fail2ban
+  when: fail2ban_enabled
+  tags: [security]
+
+- name: Enable fail2ban
+  service:
+    name: fail2ban
+    enabled: yes
+    state: started
+  when: fail2ban_enabled
+  tags: [security]
+
+- name: Configure logrotate
+  template:
+    src: monad-logrotate.j2
+    dest: /etc/logrotate.d/monad
+    mode: '0644'
+  tags: [logging]
+
+- name: Set timezone UTC
+  timezone:
+    name: UTC
+  tags: [time]
+
+- name: Enable chrony
+  service:
+    name: chrony
+    enabled: yes
+    state: started
+  tags: [time]

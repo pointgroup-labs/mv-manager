@@ -1,0 +1,160 @@
+# Monad Node role - Install and configure monad-bft
+---
+
+# =============================================================================
+# CLONE AND SETUP
+# =============================================================================
+- name: Clone monad-bft repository
+  git:
+    repo: "{{ monad_bft_repo }}"
+    dest: "{{ monad_home }}/monad-bft"
+    version: "{{ monad_bft_version }}"
+    force: no
+    update: yes
+  become_user: "{{ monad_user }}"
+  register: git_clone
+  tags: [monad, install]
+
+- name: Initialize git submodules
+  command: git submodule update --init --recursive
+  args:
+    chdir: "{{ monad_home }}/monad-bft"
+  become_user: "{{ monad_user }}"
+  when: git_clone.changed
+  tags: [monad, install]
+
+- name: Ensure config directory exists
+  file:
+    path: "{{ monad_config_dir }}"
+    state: directory
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0750'
+  tags: [monad, config]
+
+- name: Ensure logs directory exists
+  file:
+    path: "{{ monad_logs_dir }}"
+    state: directory
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0755'
+  tags: [monad, config]
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+- name: Create monad environment file
+  template:
+    src: monad.env.j2
+    dest: "{{ monad_home }}/.env"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0600'
+  no_log: true
+  tags: [monad, config]
+
+- name: Create node.toml configuration
+  template:
+    src: node.toml.j2
+    dest: "{{ monad_config_dir }}/node.toml"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0600'
+  notify: Reload monad config
+  tags: [monad, config]
+
+- name: Create Docker compose override for production
+  template:
+    src: docker-compose.override.yml.j2
+    dest: "{{ monad_home }}/monad-bft/docker/single-node/docker-compose.override.yml"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0644'
+  tags: [monad, docker]
+
+# =============================================================================
+# NODE STARTUP
+# =============================================================================
+- name: Create systemd service for monad
+  template:
+    src: monad-node.service.j2
+    dest: /etc/systemd/system/monad-node.service
+    mode: '0644'
+  register: systemd_service
+  tags: [monad, systemd]
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+  when: systemd_service.changed
+  tags: [monad, systemd]
+
+- name: Check if monad containers are running
+  shell: docker ps --filter "name=single-node" --format "{{ '{{' }}.Names{{ '}}' }}" | wc -l
+  register: running_containers
+  changed_when: false
+  tags: [monad, start]
+
+- name: Pull Docker images (prebuilt)
+  shell: |
+    cd {{ monad_home }}/monad-bft/docker/single-node
+    docker compose pull
+  become_user: "{{ monad_user }}"
+  when:
+    - use_prebuilt_images | default(true)
+    - running_containers.stdout | int < 3
+  tags: [monad, start]
+
+- name: Start monad node via systemd
+  systemd:
+    name: monad-node
+    state: started
+    enabled: yes
+  when: running_containers.stdout | int < 3
+  tags: [monad, start]
+
+# =============================================================================
+# MANAGEMENT SCRIPTS
+# =============================================================================
+- name: Create monad management scripts
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ monad_home }}/scripts/{{ item.dest }}"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0755'
+  loop:
+    - { src: 'check-sync.sh.j2', dest: 'check-sync.sh' }
+    - { src: 'restart-node.sh.j2', dest: 'restart-node.sh' }
+    - { src: 'view-logs.sh.j2', dest: 'view-logs.sh' }
+  tags: [monad, scripts]
+
+# =============================================================================
+# VERIFICATION
+# =============================================================================
+- name: Wait for RPC to be available
+  uri:
+    url: "http://localhost:{{ monad_rpc_port }}"
+    method: POST
+    body: '{"jsonrpc":"2.0","method":"eth_chainId","id":1}'
+    body_format: json
+    headers:
+      Content-Type: "application/json"
+    status_code: 200
+  register: rpc_check
+  until: rpc_check.status == 200
+  retries: 60
+  delay: 10
+  tags: [monad, verify]
+
+- name: Verify chain ID matches expected
+  fail:
+    msg: "Chain ID mismatch! Expected {{ monad_chain_id }}, got {{ rpc_check.json.result | int(base=16) }}"
+  when: rpc_check.json.result | int(base=16) != monad_chain_id
+  tags: [monad, verify]
+
+- name: Display chain ID verification
+  debug:
+    msg: "Monad node running - Chain ID: {{ rpc_check.json.result }} ({{ rpc_check.json.result | int(base=16) }})"
+  tags: [monad, verify]
