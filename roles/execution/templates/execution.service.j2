@@ -1,0 +1,28 @@
+[Unit]
+Description={{ execution_service_identifier }}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ execution_user }}
+Group={{ execution_group }}
+Type=simple
+WorkingDirectory={{ execution_home_dir }}
+EnvironmentFile={{ execution_env_file }}
+
+ExecStart={{ execution_bin_dir }}/{{ execution_service_identifier }} \
+    --data-dir {{ execution_data_dir }} \
+    --ipc-path {{ execution_ipc_socket }} \
+    --triedb-path {{ triedb_config.path }}
+
+Restart=always
+RestartSec=4
+LimitNOFILE=1048576
+LimitMEMLOCK=infinity
+MemoryMax=64G
+
+StandardOutput=append:{{ execution_log_file }}
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Restart otel service
+  ansible.builtin.systemd:
+    name: "{{ otel_service_identifier }}"
+    state: restarted

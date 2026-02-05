@@ -1,0 +1,121 @@
+---
+# =============================================================================
+# EXECUTION NODE SETUP
+# =============================================================================
+
+- name: Create execution group
+  ansible.builtin.group:
+    name: "{{ execution_group }}"
+    state: present
+  tags: [execution, user]
+
+- name: Create execution user
+  ansible.builtin.user:
+    name: "{{ execution_user }}"
+    group: "{{ execution_group }}"
+    shell: /bin/bash
+    home: "{{ execution_home_dir }}"
+    create_home: yes
+    system: yes
+  tags: [execution, user]
+
+- name: Create execution directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ execution_user }}"
+    group: "{{ execution_group }}"
+    mode: '0755'
+  loop: "{{ execution_directories }}"
+  tags: [execution, directories]
+
+- name: Create environment directory
+  ansible.builtin.file:
+    path: "{{ execution_home_dir }}/environment"
+    state: directory
+    owner: "{{ execution_user }}"
+    group: "{{ execution_group }}"
+    mode: '0755'
+  tags: [execution, directories]
+
+# =============================================================================
+# BINARY INSTALLATION
+# =============================================================================
+
+- name: Check if execution binary exists
+  ansible.builtin.stat:
+    path: "{{ execution_bin_dir }}/{{ execution_service_identifier }}"
+  register: execution_binary
+  tags: [execution, install]
+
+- name: Download monad execution binary
+  ansible.builtin.get_url:
+    url: "{{ monad_source_url }}/monad-{{ env }}-{{ monad_version }}.tar.gz"
+    dest: "/tmp/monad-execution.tar.gz"
+    mode: '0644'
+  when: not execution_binary.stat.exists
+  tags: [execution, install]
+
+- name: Extract monad execution binary
+  ansible.builtin.unarchive:
+    src: "/tmp/monad-execution.tar.gz"
+    dest: "/tmp"
+    remote_src: yes
+  when: not execution_binary.stat.exists
+  tags: [execution, install]
+
+- name: Copy execution binary
+  ansible.builtin.copy:
+    src: "/tmp/usr/local/bin/{{ execution_binary_name }}"
+    dest: "{{ execution_bin_dir }}/{{ execution_service_identifier }}"
+    remote_src: yes
+    owner: "{{ execution_user }}"
+    group: "{{ execution_group }}"
+    mode: '0755'
+  when: not execution_binary.stat.exists
+  notify: Restart execution service
+  tags: [execution, install]
+
+- name: Cleanup download
+  ansible.builtin.file:
+    path: "/tmp/monad-execution.tar.gz"
+    state: absent
+  tags: [execution, install]
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+
+- name: Create execution environment file
+  ansible.builtin.template:
+    src: execution.env.j2
+    dest: "{{ execution_env_file }}"
+    owner: "{{ execution_user }}"
+    group: "{{ execution_group }}"
+    mode: '0644'
+  notify: Restart execution service
+  tags: [execution, config]
+
+- name: Create execution systemd service
+  ansible.builtin.template:
+    src: execution.service.j2
+    dest: "/etc/systemd/system/{{ execution_service_identifier }}.service"
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart execution service
+  tags: [execution, systemd]
+
+# =============================================================================
+# SERVICE MANAGEMENT
+# =============================================================================
+
+- name: Enable and start execution service
+  ansible.builtin.systemd:
+    name: "{{ execution_service_identifier }}"
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  tags: [execution, service]

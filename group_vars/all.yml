@@ -173,13 +173,15 @@ monitoring_enabled: true
 prometheus_port: 9100
 grafana_port: 3000
 
-otel:
-  enabled: false
-  source_url: "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download"
-  ports:
-    grpc_port: 4317
-    http_port: 4318
-    prometheus_metrics_exporter_port: 8889
+# OpenTelemetry - sends metrics to Monad infrastructure
+otel_enabled: false
+otel_version: "0.96.0"
+otel_source_url: "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download"
+otel_monad_endpoint: "https://otel-external.monadinfra.com:443"
+otel_ports:
+  grpc: 4317
+  http: 4318
+  prometheus: 8889
 
 alert_disk_usage_percent: 85
 alert_memory_usage_percent: 90

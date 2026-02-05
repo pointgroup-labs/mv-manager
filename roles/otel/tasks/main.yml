@@ -1,0 +1,145 @@
+---
+# =============================================================================
+# OTEL COLLECTOR SETUP
+# =============================================================================
+
+- name: Create otel group
+  ansible.builtin.group:
+    name: "{{ otel_group }}"
+    state: present
+  tags: [otel, user]
+
+- name: Create otel user
+  ansible.builtin.user:
+    name: "{{ otel_user }}"
+    group: "{{ otel_group }}"
+    shell: /bin/bash
+    home: "{{ otel_home_dir }}"
+    create_home: yes
+    system: yes
+  tags: [otel, user]
+
+- name: Create otel directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ otel_user }}"
+    group: "{{ otel_group }}"
+    mode: '0755'
+  loop: "{{ otel_directories }}"
+  tags: [otel, directories]
+
+# =============================================================================
+# FIREWALL
+# =============================================================================
+
+- name: Allow OTEL GRPC port
+  community.general.ufw:
+    rule: allow
+    port: "{{ otel_ports.grpc | string }}"
+    proto: tcp
+    comment: "OTEL GRPC"
+  tags: [otel, firewall]
+
+- name: Allow OTEL HTTP port
+  community.general.ufw:
+    rule: allow
+    port: "{{ otel_ports.http | string }}"
+    proto: tcp
+    comment: "OTEL HTTP"
+  tags: [otel, firewall]
+
+- name: Allow OTEL Prometheus port
+  community.general.ufw:
+    rule: allow
+    port: "{{ otel_ports.prometheus | string }}"
+    proto: tcp
+    comment: "OTEL Prometheus"
+  tags: [otel, firewall]
+
+# =============================================================================
+# BINARY INSTALLATION
+# =============================================================================
+
+- name: Set architecture fact
+  ansible.builtin.set_fact:
+    otel_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }}"
+  tags: [otel, install]
+
+- name: Check if otel binary exists
+  ansible.builtin.stat:
+    path: "{{ otel_bin_dir }}/{{ otel_binary_name }}"
+  register: otel_binary
+  tags: [otel, install]
+
+- name: Download OTEL collector
+  ansible.builtin.get_url:
+    url: "{{ otel_source_url }}/v{{ otel_version }}/otelcol-contrib_{{ otel_version }}_linux_{{ otel_arch }}.tar.gz"
+    dest: "/tmp/otelcol.tar.gz"
+    mode: '0644'
+  when: not otel_binary.stat.exists
+  tags: [otel, install]
+
+- name: Extract OTEL collector
+  ansible.builtin.unarchive:
+    src: "/tmp/otelcol.tar.gz"
+    dest: "/tmp"
+    remote_src: yes
+  when: not otel_binary.stat.exists
+  tags: [otel, install]
+
+- name: Copy OTEL binary
+  ansible.builtin.copy:
+    src: "/tmp/otelcol-contrib"
+    dest: "{{ otel_bin_dir }}/{{ otel_binary_name }}"
+    remote_src: yes
+    owner: "{{ otel_user }}"
+    group: "{{ otel_group }}"
+    mode: '0755'
+  when: not otel_binary.stat.exists
+  notify: Restart otel service
+  tags: [otel, install]
+
+- name: Cleanup download
+  ansible.builtin.file:
+    path: "/tmp/otelcol.tar.gz"
+    state: absent
+  tags: [otel, install]
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+
+- name: Create OTEL config
+  ansible.builtin.template:
+    src: otel-config.yml.j2
+    dest: "{{ otel_config_file }}"
+    owner: "{{ otel_user }}"
+    group: "{{ otel_group }}"
+    mode: '0644'
+  notify: Restart otel service
+  tags: [otel, config]
+
+- name: Create OTEL systemd service
+  ansible.builtin.template:
+    src: otel.service.j2
+    dest: "/etc/systemd/system/{{ otel_service_identifier }}.service"
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart otel service
+  tags: [otel, systemd]
+
+# =============================================================================
+# SERVICE MANAGEMENT
+# =============================================================================
+
+- name: Enable and start OTEL service
+  ansible.builtin.systemd:
+    name: "{{ otel_service_identifier }}"
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  tags: [otel, service]

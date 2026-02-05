@@ -1,0 +1,23 @@
+[Unit]
+Description=OpenTelemetry Collector - {{ otel_service_identifier }}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ otel_user }}
+Group={{ otel_group }}
+Type=simple
+WorkingDirectory={{ otel_home_dir }}
+
+ExecStart={{ otel_bin_dir }}/{{ otel_binary_name }} --config={{ otel_config_file }}
+
+Restart=always
+RestartSec=4
+LimitNOFILE=65536
+MemoryMax=2G
+
+StandardOutput=append:{{ otel_log_file }}
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,25 @@
+---
+execution_home_dir: "/opt/{{ execution_service_identifier }}"
+execution_service_identifier: "monad{{ '' if type == 'validator' else '-' + type }}-execution"
+execution_user: "{{ execution_service_identifier }}"
+execution_group: "{{ project }}"
+
+execution_bin_dir: "{{ execution_home_dir }}/bin"
+execution_config_dir: "{{ execution_home_dir }}/config"
+execution_data_dir: "{{ execution_home_dir }}/data"
+execution_log_dir: "{{ execution_home_dir }}/log"
+execution_socket_dir: "{{ execution_home_dir }}/socket"
+
+execution_directories:
+  - "{{ execution_home_dir }}"
+  - "{{ execution_bin_dir }}"
+  - "{{ execution_config_dir }}"
+  - "{{ execution_data_dir }}"
+  - "{{ execution_log_dir }}"
+  - "{{ execution_socket_dir }}"
+
+execution_log_file: "{{ execution_log_dir }}/{{ execution_service_identifier }}.log"
+execution_env_file: "{{ execution_home_dir }}/environment/general.env"
+
+execution_binary_name: "monad"
+execution_ipc_socket: "{{ execution_socket_dir }}/execution.sock"

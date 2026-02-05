@@ -1,0 +1,59 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: '0.0.0.0:{{ otel_ports.grpc }}'
+      http:
+        endpoint: '0.0.0.0:{{ otel_ports.http }}'
+
+exporters:
+  otlp:
+    endpoint: {{ otel_monad_endpoint }}
+    timeout: 15s
+    sending_queue:
+      enabled: true
+      queue_size: 5000
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 10m
+
+  prometheus:
+    endpoint: '0.0.0.0:{{ otel_ports.prometheus }}'
+    send_timestamps: true
+    metric_expiration: 180m
+    enable_open_metrics: true
+    resource_to_telemetry_conversion:
+      enabled: true
+
+processors:
+  batch:
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+    timeout: 5s
+
+  memory_limiter:
+    limit_mib: 1500
+    spike_limit_mib: 512
+    check_interval: 5s
+
+  resource:
+    attributes:
+      - key: node_name
+        value: "{{ org }}"
+        action: upsert
+      - key: env
+        value: "{{ env }}"
+        action: upsert
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus, otlp]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp]

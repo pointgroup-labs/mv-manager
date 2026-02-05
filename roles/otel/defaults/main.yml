@@ -1,0 +1,30 @@
+---
+otel_enabled: true
+otel_version: "0.96.0"
+otel_service_identifier: "{{ service_identifier }}-otel"
+otel_user: "{{ otel_service_identifier }}"
+otel_group: "{{ project }}"
+
+otel_home_dir: "/opt/{{ otel_service_identifier }}"
+otel_bin_dir: "{{ otel_home_dir }}/bin"
+otel_config_dir: "{{ otel_home_dir }}/config"
+otel_log_dir: "{{ otel_home_dir }}/log"
+
+otel_directories:
+  - "{{ otel_home_dir }}"
+  - "{{ otel_bin_dir }}"
+  - "{{ otel_config_dir }}"
+  - "{{ otel_log_dir }}"
+
+otel_log_file: "{{ otel_log_dir }}/{{ otel_service_identifier }}.log"
+otel_config_file: "{{ otel_config_dir }}/config.yml"
+otel_binary_name: "otelcol-contrib"
+
+otel_source_url: "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download"
+
+otel_ports:
+  grpc: 4317
+  http: 4318
+  prometheus: 8889
+
+otel_monad_endpoint: "https://otel-external.monadinfra.com:443"

@@ -5,7 +5,7 @@ INV := -i inventory/$(ENV).yml
 G := \033[32m
 N := \033[0m
 
-.PHONY: deploy register upgrade snapshot health status sync monitor logs restart backup cleanup recovery diagnose ping ssh check vault-edit vault-encrypt vault-decrypt help
+.PHONY: deploy register upgrade snapshot execution otel health status sync monitor logs restart backup cleanup recovery diagnose ping ssh check vault-edit vault-encrypt vault-decrypt help
 
 # Deployment
 deploy: ## Full validator deployment (ENV=testnet|mainnet)
@@ -20,6 +20,12 @@ upgrade: ## Upgrade monad packages
 snapshot: ## Download and apply latest snapshot
 	ansible-playbook $(INV) playbooks/snapshot.yml $(VAULT_ARGS)
 
+execution: ## Setup execution layer (separate from consensus)
+	ansible-playbook $(INV) playbooks/setup-execution.yml $(VAULT_ARGS)
+
+otel: ## Setup OpenTelemetry collector for metrics export
+	ansible-playbook $(INV) playbooks/setup-otel.yml $(VAULT_ARGS)
+
 # Monitoring
 health: ## Run health checks
 	ansible-playbook $(INV) playbooks/maintenance.yml --tags health $(VAULT_ARGS)
@@ -30,7 +36,7 @@ status: ## Show service status and disk usage
 sync: ## Check node sync progress
 	ansible-playbook $(INV) playbooks/maintenance.yml --tags sync $(VAULT_ARGS)
 
-monitor: ## Watch sync progress in real-time
+watch: ## Watch sync progress in real-time
 	@ssh root@$$(grep vault_validator_01_ip group_vars/vault.yml | cut -d'"' -f2) "tail -f /opt/monad-consensus/log/monad-consensus.log | grep --line-buffered -E 'round|block|commit|sync|statesync'"
 
 logs: ## View recent logs (last 50 lines)
