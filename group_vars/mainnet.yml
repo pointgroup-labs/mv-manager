@@ -1,0 +1,7 @@
+---
+# Mainnet-specific configuration
+monad_chain_id: 41454
+monad_network_name: "mainnet"
+monad_snapshot_url: "https://d3b0ffqjb9bqrg.cloudfront.net"
+monad_validators_config_url: "https://bucket.monadinfra.com/validators/mainnet/validators.toml"
+monad_forkpoint_config_url: "https://bucket.monadinfra.com/forkpoint/mainnet/forkpoint.toml"

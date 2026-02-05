@@ -1,6 +1,6 @@
 # Monad Validator
 
-Ansible automation for deploying and managing Monad validators on testnet.
+Ansible automation for deploying and managing Monad validators on testnet and mainnet.
 
 ## Requirements
 
@@ -15,19 +15,19 @@ Ansible automation for deploying and managing Monad validators on testnet.
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
-ansible-galaxy install -r requirements.yml
-
-# 2. Configure
+# 1. Configure secrets
 cp group_vars/vault.yml.example group_vars/vault.yml
 vim group_vars/vault.yml
-vim inventory/hosts.yml
 
-# 3. Encrypt secrets
+# 2. Configure inventory
+vim inventory/testnet.yml   # or mainnet.yml
+
+# 3. Encrypt secrets (optional but recommended)
 ansible-vault encrypt group_vars/vault.yml
 
 # 4. Deploy
-make deploy
+make deploy                  # testnet (default)
+make deploy ENV=mainnet      # mainnet
 ```
 
 ## Configuration
@@ -37,64 +37,114 @@ make deploy
 ```yaml
 vault_validator_01_ip: "1.2.3.4"
 
-# Keys (generate fresh for production)
-vault_secp_private_key: "64_hex_chars_no_0x_prefix"
-vault_bls_private_key: "0x_66_chars_with_prefix"
+# IKM (Initial Key Material) - generates your keys
+# Get from: monad-keystore create --output-dir ./keys
+vault_secp_ikm: "64_hex_chars"
+vault_bls_ikm: "64_hex_chars"
 
-# Staking
+# Keystore password (generate: openssl rand -base64 32)
+vault_keystore_password: "your_password"
+
+# Staking (for validator registration)
 vault_funded_wallet_private_key: "wallet_with_100k_MON"
 vault_beneficiary_address: "0x..."
 vault_auth_address: "0x..."
 ```
 
-### Inventory (`inventory/hosts.yml`)
+### Inventory (`inventory/testnet.yml`)
 
 ```yaml
-validators:
-  hosts:
-    my-validator:
-      ansible_host: "{{ vault_validator_01_ip }}"
-      setup_triedb: true
-      triedb_config:
-        drive: "/dev/nvme0n1"  # verify: lsblk
+all:
+  vars:
+    env: testnet
+  children:
+    monad:
+      children:
+        validators:
+          hosts:
+            validator-01:
+              ansible_host: "{{ vault_validator_01_ip }}"
+              ansible_user: root
+              type: validator
+              setup_triedb: false  # true if fresh NVMe needs partitioning
+              triedb_config:
+                path: "/dev/triedb"
 ```
 
 ## Commands
 
 ```bash
-make deploy      # Full deployment
-make register    # Register validator (requires synced node + 100k MON)
-make upgrade     # Upgrade monad binary
-make health      # Run health checks
-make status      # Show node status
-make sync        # Check sync progress
-make restart     # Restart node
-make backup      # Backup config and keys
-make recovery    # Recovery procedures
-make diagnose    # Diagnostic info
-make ping        # Test connectivity
+# Deployment
+make deploy              # Full deployment (ENV=testnet default)
+make deploy ENV=mainnet  # Deploy to mainnet
+make register            # Register validator (requires synced node + 100k MON)
+make upgrade             # Upgrade monad packages
+
+# Sync
+make snapshot            # Download and apply latest snapshot (fastest sync)
+make sync                # Check sync progress
+make monitor             # Watch sync in real-time (Ctrl+C to exit)
+
+# Monitoring
+make health              # Run health checks
+make status              # Show service status and disk usage
+make logs                # View recent logs
+
+# Operations
+make restart             # Restart monad service
+make backup              # Backup config and keys
+make cleanup             # Cleanup old backups
+
+# Recovery
+make recovery            # Full recovery procedure
+make diagnose            # Show diagnostic info
+
+# Utilities
+make ping                # Test connectivity to all hosts
+make ssh                 # SSH to first validator
+make check               # Syntax check playbooks
+
+# Vault
+make vault-edit          # Edit encrypted vault
+make vault-encrypt       # Encrypt vault file
+make vault-decrypt       # Decrypt vault file
 ```
 
 ## Project Structure
 
 ```
-├── inventory/hosts.yml       # Server inventory
+├── inventory/
+│   ├── testnet.yml          # Testnet servers
+│   └── mainnet.yml          # Mainnet servers
 ├── group_vars/
-│   ├── all.yml               # Main configuration
-│   └── vault.yml             # Secrets (encrypted)
+│   ├── all.yml              # Common configuration
+│   ├── testnet.yml          # Testnet-specific (chain ID, URLs)
+│   ├── mainnet.yml          # Mainnet-specific
+│   ├── vault.yml            # Secrets (gitignored)
+│   └── vault.yml.example    # Secrets template
 ├── playbooks/
-│   ├── deploy-validator.yml  # Full deployment
+│   ├── deploy-validator.yml
+│   ├── snapshot.yml         # Fast sync via snapshot
 │   ├── register-validator.yml
 │   ├── upgrade-node.yml
-│   ├── maintenance.yml       # Health, status, sync, restart, backup
+│   ├── maintenance.yml
 │   └── recovery.yml
 └── roles/
-    ├── common/               # Preflight checks
-    ├── prepare_server/       # Packages, sysctl, hugepages, triedb
-    ├── monad-node/           # Binary, config, systemd service
-    ├── validator/            # Staking CLI, registration
-    ├── monitoring/           # Health checks, alerts
-    └── backup/               # Backup scripts
+    ├── common/              # Preflight checks, firewall
+    ├── prepare_server/      # Packages, sysctl, hugepages, triedb
+    ├── monad-node/          # Monad binary, config, systemd
+    ├── validator/           # Staking CLI, registration
+    ├── monitoring/          # Health checks, alerts
+    └── backup/              # Backup scripts
+```
+
+## Snapshot Sync (Recommended)
+
+Instead of syncing from genesis, use a snapshot:
+
+```bash
+make snapshot            # Downloads ~700MB, applies in minutes
+make monitor             # Watch sync progress
 ```
 
 ## Validator Registration
@@ -107,11 +157,10 @@ make register
 
 Requirements:
 - Node synced (`eth_syncing` returns `false`)
-- SECP private key (64 hex chars, no 0x)
-- BLS private key (66 chars with 0x)
-- Funded wallet with 100,000+ MON
+- `vault_funded_wallet_private_key` set in vault.yml
+- Wallet funded with 100,000+ MON
 
-## Network
+## Network Ports
 
 | Port | Protocol | Purpose |
 |------|----------|---------|
@@ -131,6 +180,10 @@ journalctl -u monad-consensus -f
 
 # Service status
 systemctl status monad-consensus
+
+# Check block number
+curl -s localhost:8002 -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"eth_blockNumber","id":1}' | jq -r '.result' | xargs printf '%d\n'
 ```
 
 ## License

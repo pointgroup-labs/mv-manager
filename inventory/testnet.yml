@@ -13,11 +13,9 @@ all:
               ansible_host: "{{ vault_validator_01_ip }}"
               ansible_user: root
               type: validator
-              # TrieDB already configured on server via md1p1 RAID
               setup_triedb: false
               triedb_config:
                 path: "/dev/triedb"
-              # Set true when ready to stake
               register_validator: false
 
         fullnodes:

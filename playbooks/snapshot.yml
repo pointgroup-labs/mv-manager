@@ -1,0 +1,176 @@
+---
+- name: Download and apply snapshot
+  hosts: validators
+  become: yes
+  gather_facts: yes
+
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+    - ../group_vars/{{ env }}.yml
+
+  vars:
+    tmp_dir: /tmp/monad-snapshot
+
+  tasks:
+    - name: Stop monad service
+      systemd:
+        name: "{{ service_identifier }}"
+        state: stopped
+      tags: [snapshot]
+
+    - name: Create tmp folder
+      file:
+        path: "{{ tmp_dir }}"
+        state: directory
+        mode: '0755'
+      tags: [snapshot]
+
+    - name: Get latest snapshot filename
+      uri:
+        url: "{{ monad_snapshot_url }}/latest.txt"
+        method: GET
+        return_content: true
+      register: latest_file_response
+      failed_when: latest_file_response.content | trim == ""
+      tags: [snapshot]
+
+    - name: Set snapshot facts
+      set_fact:
+        snapshot_filename: "{{ latest_file_response.content | trim }}"
+        block_id: "{{ (latest_file_response.content | trim).split('-')[1] }}"
+      tags: [snapshot]
+
+    - name: Display snapshot info
+      debug:
+        msg:
+          - "Snapshot file: {{ snapshot_filename }}"
+          - "Block ID: {{ block_id }}"
+      tags: [snapshot]
+
+    - name: Download snapshot with aria2c (parallel)
+      command:
+        cmd: aria2c -x 8 -s 8 --continue=true "{{ monad_snapshot_url }}/{{ snapshot_filename }}.{{ item }}"
+        chdir: "{{ tmp_dir }}"
+      loop:
+        - tar.zst
+        - checksum
+      register: download_result
+      failed_when: download_result.rc != 0
+      tags: [snapshot]
+
+    - name: Verify checksum
+      shell: |
+        cd {{ tmp_dir }}
+        sha256sum -c {{ snapshot_filename }}.checksum
+      register: checksum_result
+      failed_when: checksum_result.rc != 0
+      tags: [snapshot]
+
+    - name: Delete existing data directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ monad_data_dir }}/bodies"
+        - "{{ monad_data_dir }}/headers"
+        - "{{ monad_data_dir }}"
+        - "{{ monad_socket_dir }}"
+        - "{{ monad_wal_dir }}"
+      tags: [snapshot]
+
+    - name: Delete WAL files
+      shell: rm -rf {{ monad_home }}/wal_*
+      changed_when: true
+      tags: [snapshot]
+
+    - name: Recreate empty directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ monad_user }}"
+        group: "{{ monad_group }}"
+        mode: '0755'
+      loop:
+        - "{{ monad_data_dir }}"
+        - "{{ monad_data_dir }}/bodies"
+        - "{{ monad_data_dir }}/headers"
+        - "{{ monad_socket_dir }}"
+        - "{{ monad_wal_dir }}"
+      tags: [snapshot]
+
+    - name: Truncate triedb with monad-mpt
+      command: monad-mpt --storage {{ triedb_config.path }} --truncate --yes
+      register: truncate_result
+      failed_when: truncate_result.rc != 0
+      tags: [snapshot]
+
+    - name: Display truncate status
+      debug:
+        var: truncate_result.stdout
+      tags: [snapshot]
+
+    - name: Extract snapshot archive
+      shell: |
+        set -o pipefail
+        zstd -d {{ tmp_dir }}/{{ snapshot_filename }}.tar.zst -c | tar -xf - -C {{ tmp_dir }}
+      args:
+        executable: /bin/bash
+      tags: [snapshot]
+
+    - name: Load binary snapshot with monad-cli
+      command: >-
+        monad-cli
+        --db {{ triedb_config.path }}
+        --load_binary_snapshot {{ tmp_dir }}
+        --version {{ block_id }}
+        --sq_thread_cpu 15
+      register: monad_cli_result
+      failed_when: monad_cli_result.rc != 0
+      tags: [snapshot]
+
+    - name: Display monad-cli result
+      debug:
+        var: monad_cli_result.stdout_lines
+      tags: [snapshot]
+
+    - name: Set ownership of data directories
+      file:
+        path: "{{ item }}"
+        owner: "{{ monad_user }}"
+        group: "{{ monad_group }}"
+        recurse: yes
+      loop:
+        - "{{ monad_data_dir }}"
+        - "{{ monad_socket_dir }}"
+        - "{{ monad_wal_dir }}"
+      tags: [snapshot]
+
+    - name: Cleanup tmp directory
+      file:
+        path: "{{ tmp_dir }}"
+        state: absent
+      tags: [snapshot]
+
+    - name: Start monad service
+      systemd:
+        name: "{{ service_identifier }}"
+        state: started
+      tags: [snapshot]
+
+    - name: Wait for service startup
+      pause:
+        seconds: 30
+      tags: [snapshot]
+
+    - name: Verify service running
+      systemd:
+        name: "{{ service_identifier }}"
+      register: svc
+      failed_when: svc.status.ActiveState != "active"
+      tags: [snapshot]
+
+    - name: Show status
+      debug:
+        msg: "Snapshot applied from block {{ block_id }}. Service {{ svc.status.ActiveState }}. Check sync with: make sync"
+      tags: [snapshot]
