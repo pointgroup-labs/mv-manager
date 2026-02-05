@@ -1,4 +1,4 @@
-# Monad Validator
+# Monad Validator Manager
 
 Ansible automation for deploying and managing Monad validators on testnet and mainnet.
 
