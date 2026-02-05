@@ -20,14 +20,16 @@ cp group_vars/vault.yml.example group_vars/vault.yml
 vim group_vars/vault.yml
 
 # 2. Configure inventory
-vim inventory/testnet.yml   # or mainnet.yml
+vim inventory/testnet.yml
 
-# 3. Encrypt secrets (optional but recommended)
-ansible-vault encrypt group_vars/vault.yml
+# 3. Deploy
+make deploy
 
-# 4. Deploy
-make deploy                  # testnet (default)
-make deploy ENV=mainnet      # mainnet
+# 4. Apply snapshot (fast sync)
+make snapshot
+
+# 5. Monitor sync
+make watch
 ```
 
 ## Configuration
@@ -38,11 +40,10 @@ make deploy ENV=mainnet      # mainnet
 vault_validator_01_ip: "1.2.3.4"
 
 # IKM (Initial Key Material) - generates your keys
-# Get from: monad-keystore create --output-dir ./keys
 vault_secp_ikm: "64_hex_chars"
 vault_bls_ikm: "64_hex_chars"
 
-# Keystore password (generate: openssl rand -base64 32)
+# Keystore password
 vault_keystore_password: "your_password"
 
 # Staking (for validator registration)
@@ -54,40 +55,36 @@ vault_auth_address: "0x..."
 ### Inventory (`inventory/testnet.yml`)
 
 ```yaml
-all:
-  vars:
-    env: testnet
-  children:
-    monad:
-      children:
-        validators:
-          hosts:
-            validator-01:
-              ansible_host: "{{ vault_validator_01_ip }}"
-              ansible_user: root
-              type: validator
-              setup_triedb: false  # true if fresh NVMe needs partitioning
-              triedb_config:
-                path: "/dev/triedb"
+validators:
+  hosts:
+    validator-01:
+      ansible_host: "{{ vault_validator_01_ip }}"
+      ansible_user: root
+      type: validator
+      setup_triedb: false
+      triedb_config:
+        path: "/dev/triedb"
 ```
 
 ## Commands
 
 ```bash
 # Deployment
-make deploy              # Full deployment (ENV=testnet default)
+make deploy              # Full deployment
 make deploy ENV=mainnet  # Deploy to mainnet
-make register            # Register validator (requires synced node + 100k MON)
+make snapshot            # Fast sync via snapshot
+make register            # Register validator (requires 100k MON)
 make upgrade             # Upgrade monad packages
 
-# Sync
-make snapshot            # Download and apply latest snapshot (fastest sync)
-make sync                # Check sync progress
-make monitor             # Watch sync in real-time (Ctrl+C to exit)
+# Components
+make execution           # Setup execution layer
+make otel                # Setup OpenTelemetry metrics
 
 # Monitoring
 make health              # Run health checks
-make status              # Show service status and disk usage
+make status              # Show service status
+make sync                # Check sync progress
+make watch               # Watch sync in real-time
 make logs                # View recent logs
 
 # Operations
@@ -100,51 +97,57 @@ make recovery            # Full recovery procedure
 make diagnose            # Show diagnostic info
 
 # Utilities
-make ping                # Test connectivity to all hosts
-make ssh                 # SSH to first validator
+make ping                # Test connectivity
+make ssh                 # SSH to validator
 make check               # Syntax check playbooks
 
 # Vault
 make vault-edit          # Edit encrypted vault
 make vault-encrypt       # Encrypt vault file
 make vault-decrypt       # Decrypt vault file
+
+# Help
+make help                # Show all commands
 ```
 
 ## Project Structure
 
 ```
 ├── inventory/
-│   ├── testnet.yml          # Testnet servers
-│   └── mainnet.yml          # Mainnet servers
+│   ├── testnet.yml
+│   └── mainnet.yml
 ├── group_vars/
 │   ├── all.yml              # Common configuration
-│   ├── testnet.yml          # Testnet-specific (chain ID, URLs)
+│   ├── testnet.yml          # Testnet-specific
 │   ├── mainnet.yml          # Mainnet-specific
-│   ├── vault.yml            # Secrets (gitignored)
-│   └── vault.yml.example    # Secrets template
+│   └── vault.yml            # Secrets (gitignored)
 ├── playbooks/
-│   ├── deploy-validator.yml
-│   ├── snapshot.yml         # Fast sync via snapshot
+│   ├── deploy-validator.yml # Full deployment
+│   ├── snapshot.yml         # Fast sync
+│   ├── setup-execution.yml  # Execution layer
+│   ├── setup-otel.yml       # OpenTelemetry
 │   ├── register-validator.yml
 │   ├── upgrade-node.yml
 │   ├── maintenance.yml
 │   └── recovery.yml
 └── roles/
-    ├── common/              # Preflight checks, firewall
-    ├── prepare_server/      # Packages, sysctl, hugepages, triedb
-    ├── monad-node/          # Monad binary, config, systemd
-    ├── validator/           # Staking CLI, registration
-    ├── monitoring/          # Health checks, alerts
+    ├── common/              # Firewall, fail2ban
+    ├── prepare_server/      # Packages, hugepages, triedb
+    ├── monad-node/          # Consensus node
+    ├── validator/           # Staking CLI
+    ├── execution/           # Execution layer
+    ├── otel/                # OpenTelemetry collector
+    ├── monitoring/          # Health checks
     └── backup/              # Backup scripts
 ```
 
-## Snapshot Sync (Recommended)
+## Snapshot Sync
 
-Instead of syncing from genesis, use a snapshot:
+Fast sync using official snapshots:
 
 ```bash
-make snapshot            # Downloads ~700MB, applies in minutes
-make monitor             # Watch sync progress
+make snapshot    # Downloads and applies snapshot
+make watch       # Monitor sync progress
 ```
 
 ## Validator Registration
@@ -157,7 +160,6 @@ make register
 
 Requirements:
 - Node synced (`eth_syncing` returns `false`)
-- `vault_funded_wallet_private_key` set in vault.yml
 - Wallet funded with 100,000+ MON
 
 ## Network Ports
@@ -166,25 +168,9 @@ Requirements:
 |------|----------|---------|
 | 8000 | TCP/UDP | P2P |
 | 8001 | UDP | Auth |
-| 8002 | TCP | RPC (localhost only) |
-
-## Useful Commands
-
-```bash
-# Check sync status
-curl -s localhost:8002 -X POST -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_syncing","id":1}' | jq
-
-# View logs
-journalctl -u monad-consensus -f
-
-# Service status
-systemctl status monad-consensus
-
-# Check block number
-curl -s localhost:8002 -X POST -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_blockNumber","id":1}' | jq -r '.result' | xargs printf '%d\n'
-```
+| 8002 | TCP | RPC (localhost) |
+| 4317 | TCP | OTEL GRPC |
+| 8889 | TCP | Prometheus metrics |
 
 ## License
 
