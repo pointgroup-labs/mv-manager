@@ -13,6 +13,8 @@
   ansible.builtin.user:
     name: "{{ execution_user }}"
     group: "{{ execution_group }}"
+    groups: "{{ monad_group }}"
+    append: yes
     shell: /bin/bash
     home: "{{ execution_home_dir }}"
     create_home: yes
@@ -48,12 +50,32 @@
   register: execution_binary
   tags: [execution, install]
 
+- name: Check for system monad binary
+  ansible.builtin.stat:
+    path: "/usr/local/bin/{{ execution_binary_name }}"
+  register: system_monad_binary
+  tags: [execution, install]
+
+- name: Link system binary if available
+  ansible.builtin.file:
+    src: "/usr/local/bin/{{ execution_binary_name }}"
+    dest: "{{ execution_bin_dir }}/{{ execution_service_identifier }}"
+    state: link
+    owner: "{{ execution_user }}"
+    group: "{{ execution_group }}"
+  when:
+    - not execution_binary.stat.exists
+    - system_monad_binary.stat.exists
+  tags: [execution, install]
+
 - name: Download monad execution binary
   ansible.builtin.get_url:
     url: "{{ monad_source_url }}/monad-{{ env }}-{{ monad_version }}.tar.gz"
     dest: "/tmp/monad-execution.tar.gz"
     mode: '0644'
-  when: not execution_binary.stat.exists
+  when:
+    - not execution_binary.stat.exists
+    - not system_monad_binary.stat.exists
   tags: [execution, install]
 
 - name: Extract monad execution binary
@@ -61,7 +83,9 @@
     src: "/tmp/monad-execution.tar.gz"
     dest: "/tmp"
     remote_src: yes
-  when: not execution_binary.stat.exists
+  when:
+    - not execution_binary.stat.exists
+    - not system_monad_binary.stat.exists
   tags: [execution, install]
 
 - name: Copy execution binary
@@ -72,7 +96,9 @@
     owner: "{{ execution_user }}"
     group: "{{ execution_group }}"
     mode: '0755'
-  when: not execution_binary.stat.exists
+  when:
+    - not execution_binary.stat.exists
+    - not system_monad_binary.stat.exists
   notify: Restart execution service
   tags: [execution, install]
 

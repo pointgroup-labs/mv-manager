@@ -11,9 +11,12 @@ WorkingDirectory={{ execution_home_dir }}
 EnvironmentFile={{ execution_env_file }}
 
 ExecStart={{ execution_bin_dir }}/{{ execution_service_identifier }} \
-    --data-dir {{ execution_data_dir }} \
-    --ipc-path {{ execution_ipc_socket }} \
-    --triedb-path {{ triedb_config.path }}
+    --chain {{ execution_chain }} \
+    --block-db {{ monad_data_dir }} \
+    --db {{ triedb_config.path }} \
+    --statesync {{ monad_socket_dir }}/statesync.sock \
+    --log-level {{ execution_log_level | default('INFO') }} \
+    --sq-thread-cpu {{ execution_sq_thread_cpu | default(1) }}
 
 Restart=always
 RestartSec=4

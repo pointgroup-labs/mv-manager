@@ -20,7 +20,8 @@ cp group_vars/vault.yml.example group_vars/vault.yml
 vim group_vars/vault.yml
 
 # 2. Configure inventory
-vim inventory/testnet.yml
+cp inventory/testnet.yml inventory/local.yml
+vim inventory/local.yml
 
 # 3. Deploy
 make deploy
@@ -29,7 +30,7 @@ make deploy
 make snapshot
 
 # 5. Monitor sync
-make watch
+make sync
 ```
 
 ## Configuration
@@ -52,72 +53,84 @@ vault_beneficiary_address: "0x..."
 vault_auth_address: "0x..."
 ```
 
-### Inventory (`inventory/testnet.yml`)
+### Inventory (`inventory/local.yml`)
+
+Copy from template and customize:
+
+```bash
+cp inventory/testnet.yml inventory/local.yml
+```
 
 ```yaml
-validators:
-  hosts:
-    validator-01:
-      ansible_host: "{{ vault_validator_01_ip }}"
-      ansible_user: root
-      type: validator
-      setup_triedb: false
-      triedb_config:
-        path: "/dev/triedb"
+all:
+  vars:
+    env: testnet  # or mainnet
+
+  children:
+    monad:
+      children:
+        validators:
+          hosts:
+            my-validator:
+              ansible_host: "1.2.3.4"
+              type: validator
+              setup_triedb: true
+              register_validator: false
+
+        fullnodes:
+          hosts: {}
 ```
 
 ## Commands
 
+All commands support `NODE=<name>` to target a specific host.
+
 ```bash
 # Deployment
-make deploy              # Full deployment
-make deploy ENV=mainnet  # Deploy to mainnet
-make snapshot            # Fast sync via snapshot
-make register            # Register validator (requires 100k MON)
-make upgrade             # Upgrade monad packages
-
-# Components
+make deploy              # Deploy validator
+make snapshot            # Apply snapshot for fast sync
 make execution           # Setup execution layer
-make otel                # Setup OpenTelemetry metrics
+make register            # Register validator (requires synced node + 100k MON)
+make upgrade             # Upgrade monad packages
 
 # Monitoring
 make health              # Run health checks
-make status              # Show service status
-make sync                # Check sync progress
-make watch               # Watch sync in real-time
-make logs                # View recent logs
+make status              # Show validator status
+make sync                # Show current block number
+make logs                # Tail consensus logs (LINES=100)
+make watch               # Stream logs in real-time
 
 # Operations
-make restart             # Restart monad service
-make backup              # Backup config and keys
-make cleanup             # Cleanup old backups
+make restart             # Restart services
+make stop                # Stop services
+make start               # Start services
+make backup              # Backup keys and config
 
 # Recovery
-make recovery            # Full recovery procedure
+make recovery            # Run recovery playbook
 make diagnose            # Show diagnostic info
 
 # Utilities
 make ping                # Test connectivity
-make ssh                 # SSH to validator
+make ssh                 # SSH to first validator
 make check               # Syntax check playbooks
 
 # Vault
-make vault-edit          # Edit encrypted vault
-make vault-encrypt       # Encrypt vault file
-make vault-decrypt       # Decrypt vault file
-
-# Help
-make help                # Show all commands
+make vault-edit          # Edit vault secrets
+make vault-encrypt       # Encrypt vault
+make vault-decrypt       # Decrypt vault
 ```
 
 ## Project Structure
 
 ```
 ├── inventory/
-│   ├── testnet.yml
-│   └── mainnet.yml
+│   ├── local.yml            # Your inventory (gitignored)
+│   ├── testnet.yml          # Testnet template
+│   └── mainnet.yml          # Mainnet template
 ├── group_vars/
 │   ├── all.yml              # Common configuration
+│   ├── validators.yml       # Validator defaults
 │   ├── testnet.yml          # Testnet-specific
 │   ├── mainnet.yml          # Mainnet-specific
 │   └── vault.yml            # Secrets (gitignored)
@@ -146,8 +159,8 @@ make help                # Show all commands
 Fast sync using official snapshots:
 
 ```bash
-make snapshot    # Downloads and applies snapshot
-make watch       # Monitor sync progress
+make snapshot
+make sync      # Monitor progress
 ```
 
 ## Validator Registration

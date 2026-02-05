@@ -1,75 +1,76 @@
 INV := inventory/local.yml
+LOG := /opt/monad-consensus/log/monad-consensus.log
 A := -i $(INV) $(if $(NODE),--limit $(NODE),)
-G := \033[32m
-N := \033[0m
 
-.DEFAULT_GOAL := help
-.PHONY: deploy register upgrade snapshot execution otel health status sync logs restart backup cleanup recovery diagnose ping ssh info check vault-edit vault-encrypt vault-decrypt help
-
-# Deployment
-deploy: ## Deploy validators [NODE=]
+## Deployment
+deploy: ## Deploy validator
 	ansible-playbook $(A) playbooks/deploy-validator.yml
 
-register: ## Register validator [NODE=]
-	ansible-playbook $(A) playbooks/register-validator.yml
-
-upgrade: ## Upgrade packages [NODE=]
-	ansible-playbook $(A) playbooks/upgrade-node.yml
-
-snapshot: ## Apply snapshot [NODE=]
+snapshot: ## Apply snapshot for fast sync
 	ansible-playbook $(A) playbooks/snapshot.yml
 
-execution: ## Setup execution [NODE=]
+execution: ## Setup execution layer
 	ansible-playbook $(A) playbooks/setup-execution.yml
 
-otel: ## Setup OpenTelemetry [NODE=]
-	ansible-playbook $(A) playbooks/setup-otel.yml
+register: ## Register validator (requires synced node + 100k MON)
+	ansible-playbook $(A) playbooks/register-validator.yml
 
-# Monitoring
-health: ## Health checks [NODE=]
+upgrade: ## Upgrade monad packages
+	ansible-playbook $(A) playbooks/upgrade-node.yml
+
+## Monitoring
+health: ## Run health checks
 	ansible-playbook $(A) playbooks/maintenance.yml --tags health
 
-status: ## Service status [NODE=]
-	ansible-playbook $(A) playbooks/maintenance.yml --tags status
+status: ## Show validator status [NODE=]
+	@./scripts/validator-info.sh "$(NODE)"
 
-sync: ## Sync progress [NODE=]
-	ansible-playbook $(A) playbooks/maintenance.yml --tags sync
+sync: ## Show current block number
+	@ansible $(A) validators -m shell -a '\
+		grep "\"committed block\"" $(LOG) 2>/dev/null | \
+		tail -1 | sed "s/.*block_num\"://; s/},.*//" || echo "No blocks yet"' 2>/dev/null | grep -v "CHANGED\|SUCCESS" || true
 
-logs: ## View logs [NODE=]
-	ansible $(A) validators -m shell -a "tail -50 /opt/monad-consensus/log/monad-consensus.log"
+logs: ## Tail consensus logs (LINES=100)
+	@ansible $(A) validators -m shell -a '\
+		tail -$(or $(LINES),100) $(LOG) | \
+		grep -E "INFO|WARN|ERROR" | tail -20'
 
-# Operations
-restart: ## Restart service [NODE=]
-	ansible-playbook $(A) playbooks/maintenance.yml --tags restart
+watch: ## Stream logs in real-time
+	@IP=$$(ansible-inventory $(A) --list 2>/dev/null | jq -r '.validators.hosts[0] as $$h | .["_meta"]["hostvars"][$$h]["ansible_host"]'); \
+	ssh root@$$IP 'tail -f $(LOG)' 2>/dev/null | ./scripts/colorize-logs.sh
 
-backup: ## Backup keys [NODE=]
+## Operations
+restart: ## Restart services
+	@ansible $(A) validators -m shell -a 'systemctl restart monad-consensus'
+
+stop: ## Stop services
+	@ansible $(A) validators -m shell -a 'systemctl stop monad-consensus monad-execution'
+
+start: ## Start services
+	@ansible $(A) validators -m shell -a 'systemctl start monad-execution && sleep 2 && systemctl start monad-consensus'
+
+backup: ## Backup keys and config
 	ansible-playbook $(A) playbooks/maintenance.yml --tags backup
 
-cleanup: ## Cleanup backups [NODE=]
-	ansible-playbook $(A) playbooks/maintenance.yml --tags cleanup
-
-# Recovery
-recovery: ## Full recovery [NODE=]
+## Recovery
+recovery: ## Run recovery playbook
 	ansible-playbook $(A) playbooks/recovery.yml
 
-diagnose: ## Diagnostic info [NODE=]
+diagnose: ## Show diagnostic info
 	ansible-playbook $(A) playbooks/recovery.yml --tags diagnose
 
-# Utilities
-ping: ## Test connectivity [NODE=]
-	ansible $(A) all -m ping
+## Utilities
+ping: ## Test connectivity
+	@ansible $(A) all -m ping
 
-ssh: ## SSH to validator [ENV=] [NODE=]
-	@./scripts/get-host.sh "$(ENV)" "$(NODE)" | xargs -I {} ssh root@{}
+ssh: ## SSH to first validator
+	@ansible-inventory $(A) --list 2>/dev/null | jq -r '.validators.hosts[0] as $$h | .["_meta"]["hostvars"][$$h]["ansible_host"]' | xargs -I{} ssh root@{}
 
-info: ## Show validator info [ENV=] [NODE=]
-	@./scripts/validator-info.sh "$(ENV)" "$(NODE)"
+check: ## Syntax check playbooks
+	@ansible-playbook $(A) playbooks/deploy-validator.yml --syntax-check
 
-check: ## Syntax check
-	ansible-playbook $(A) playbooks/deploy-validator.yml --syntax-check
-
-# Vault
-vault-edit: ## Edit vault
+## Vault
+vault-edit: ## Edit vault secrets
 	ansible-vault edit group_vars/vault.yml
 
 vault-encrypt: ## Encrypt vault
@@ -78,10 +79,13 @@ vault-encrypt: ## Encrypt vault
 vault-decrypt: ## Decrypt vault
 	ansible-vault decrypt group_vars/vault.yml
 
-# Help
-help: ## Show targets
-	@echo "Monad Validator Manager"
+## Help
+help:
+	@echo "Usage: make [target] [NODE=name]"
 	@echo ""
-	@echo "Usage: make <target> [NODE=name] [ENV=testnet|mainnet]"
+	@awk '/^## /{sub(/^## /,""); printf "\n\033[1m%s\033[0m\n", $$0; next} \
+		/^[a-z-]+:.*##/{split($$0,a,":.*## "); printf "  \033[36m%-12s\033[0m %s\n", a[1], a[2]}' $(MAKEFILE_LIST)
 	@echo ""
-	@awk 'BEGIN {FS=":.*##"} /^[a-zA-Z0-9_-]+:.*##/ { printf "  $(G)%-14s$(N) %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+.DEFAULT_GOAL := help
+.PHONY: deploy snapshot execution register upgrade health status sync logs watch restart stop start backup recovery diagnose ping ssh check vault-edit vault-encrypt vault-decrypt help

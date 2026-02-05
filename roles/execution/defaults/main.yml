@@ -23,3 +23,7 @@ execution_env_file: "{{ execution_home_dir }}/environment/general.env"
 
 execution_binary_name: "monad"
 execution_ipc_socket: "{{ execution_socket_dir }}/execution.sock"
+
+execution_chain: "monad_{{ env }}"
+execution_log_level: "INFO"
+execution_sq_thread_cpu: 1
