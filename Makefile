@@ -63,6 +63,12 @@ diagnose: ## Show diagnostic info
 ping: ## Test connectivity
 	@ansible $(A) all -m ping
 
+hardware: ## Show hardware specs (CPU, RAM, storage)
+	@./scripts/hardware-info.sh "$(NODE)"
+
+speedtest: ## Run bandwidth speedtest
+	@./scripts/speedtest.sh "$(NODE)"
+
 ssh: ## SSH to first validator
 	@ansible-inventory $(A) --list 2>/dev/null | jq -r '.validators.hosts[0] as $$h | .["_meta"]["hostvars"][$$h]["ansible_host"]' | xargs -I{} ssh root@{}
 
@@ -88,4 +94,4 @@ help:
 	@echo ""
 
 .DEFAULT_GOAL := help
-.PHONY: deploy snapshot execution register upgrade health status sync logs watch restart stop start backup recovery diagnose ping ssh check vault-edit vault-encrypt vault-decrypt help
+.PHONY: deploy snapshot execution register upgrade health status sync logs watch restart stop start backup recovery diagnose ping hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help
