@@ -19,7 +19,7 @@ echo "Losing the password means losing access to keys!"
 echo ""
 
 # Check if keys exist
-if [ ! -d "{{ monad_config_dir }}/id-secp" ] || [ ! -d "{{ monad_config_dir }}/id-bls" ]; then
+if [ ! -d "{{ monad_key_dir }}/id-secp" ] || [ ! -d "{{ monad_key_dir }}/id-bls" ]; then
   echo "Key directories not found. Has the node been initialized?"
   exit 1
 fi
@@ -27,7 +27,7 @@ fi
 # Create tarball of keys
 echo "Creating key archive..."
 tar -czf "$TEMP_TAR" \
-  -C {{ monad_config_dir }} \
+  -C {{ monad_key_dir }} \
   id-secp \
   id-bls
 
@@ -59,6 +59,6 @@ echo ""
 echo "Encrypted key backup created: $KEY_BACKUP"
 echo ""
 echo "To restore, use:"
-echo "  openssl enc -aes-256-cbc -d -pbkdf2 -in $KEY_BACKUP | tar -xzf - -C {{ monad_config_dir }}"
+echo "  openssl enc -aes-256-cbc -d -pbkdf2 -in $KEY_BACKUP | tar -xzf - -C {{ monad_key_dir }}"
 echo ""
 echo "IMPORTANT: Store this backup securely offline!"
