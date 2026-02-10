@@ -12,6 +12,9 @@ snapshot: ## Apply snapshot for fast sync
 execution: ## Setup execution layer
 	ansible-playbook $(A) playbooks/setup-execution.yml
 
+rpc: ## Setup JSON-RPC server
+	ansible-playbook $(A) playbooks/setup-rpc.yml
+
 register: ## Register validator (requires synced node + 100k MON)
 	ansible-playbook $(A) playbooks/register-validator.yml
 
@@ -25,11 +28,6 @@ health: ## Run health checks
 status: ## Show validator status [NODE=]
 	@./scripts/validator-info.sh "$(NODE)"
 
-sync: ## Show current block number
-	@ansible $(A) validators -m shell -a '\
-		grep "\"committed block\"" $(LOG) 2>/dev/null | \
-		tail -1 | sed "s/.*block_num\"://; s/},.*//" || echo "No blocks yet"' 2>/dev/null | grep -v "CHANGED\|SUCCESS" || true
-
 logs: ## Tail consensus logs (LINES=100)
 	@ansible $(A) validators -m shell -a '\
 		tail -$(or $(LINES),100) $(LOG) | \
@@ -41,13 +39,13 @@ watch: ## Stream logs in real-time
 
 ## Operations
 restart: ## Restart services
-	@ansible $(A) validators -m shell -a 'systemctl restart monad-consensus'
+	@ansible $(A) validators -m shell -a 'systemctl restart monad-consensus monad-rpc'
 
 stop: ## Stop services
-	@ansible $(A) validators -m shell -a 'systemctl stop monad-consensus monad-execution'
+	@ansible $(A) validators -m shell -a 'systemctl stop monad-rpc monad-consensus monad-execution'
 
 start: ## Start services
-	@ansible $(A) validators -m shell -a 'systemctl start monad-execution && sleep 2 && systemctl start monad-consensus'
+	@ansible $(A) validators -m shell -a 'systemctl start monad-execution && sleep 2 && systemctl start monad-consensus && sleep 2 && systemctl start monad-rpc'
 
 backup: ## Backup keys and config
 	ansible-playbook $(A) playbooks/maintenance.yml --tags backup
@@ -94,4 +92,4 @@ help:
 	@echo ""
 
 .DEFAULT_GOAL := help
-.PHONY: deploy snapshot execution register upgrade health status sync logs watch restart stop start backup recovery diagnose ping hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help
+.PHONY: deploy snapshot execution rpc register upgrade health status logs watch restart stop start backup recovery diagnose ping hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help
