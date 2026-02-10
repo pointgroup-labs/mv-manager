@@ -1,0 +1,32 @@
+[Unit]
+Description={{ rpc_service_identifier }}
+After=monad-consensus.service monad-execution.service
+Wants=monad-consensus.service monad-execution.service
+
+[Service]
+User={{ rpc_user }}
+Group={{ rpc_group }}
+UMask=002
+WorkingDirectory={{ rpc_home_dir }}
+EnvironmentFile={{ rpc_env_file }}
+ExecStart=/usr/local/bin/{{ rpc_binary_name }} \
+    --ipc-path {{ monad_mempool_socket }} \
+    --triedb-path {{ triedb_config.path }} \
+    --otel-endpoint "{{ monad[type].otel_endpoint | default('http://127.0.0.1:4317') }}" \
+    --allow-unprotected-txs \
+    --rpc-port {{ monad_rpc_port }} \
+    --node-config {{ monad_node_config_file }}
+Restart=always
+RestartSec={{ rpc_restart_sec }}
+LimitNOFILE={{ rpc_limit_nofile }}
+DeviceAllow={{ triedb_config.path }} rw
+LimitMEMLOCK=infinity
+MemoryDenyWriteExecute=false
+ProtectKernelModules=no
+ProtectKernelLogs=no
+MemoryMax={{ rpc_memory_max }}
+StandardOutput=append:{{ rpc_log_file }}
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target

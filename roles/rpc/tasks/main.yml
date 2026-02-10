@@ -1,0 +1,51 @@
+---
+- name: Check if monad-rpc binary exists
+  ansible.builtin.stat:
+    path: "/usr/local/bin/{{ rpc_binary_name }}"
+  register: rpc_binary
+  tags: [rpc, install]
+
+- name: Fail if monad-rpc binary not found
+  ansible.builtin.fail:
+    msg: "{{ rpc_binary_name }} binary not found at /usr/local/bin/{{ rpc_binary_name }}. Install monad packages first."
+  when: not rpc_binary.stat.exists
+  tags: [rpc, install]
+
+- name: Create RPC environment directory
+  ansible.builtin.file:
+    path: "{{ rpc_env_dir }}"
+    state: directory
+    owner: "{{ rpc_user }}"
+    group: "{{ rpc_group }}"
+    mode: '0755'
+  tags: [rpc, config]
+
+- name: Create RPC environment file
+  ansible.builtin.template:
+    src: rpc.env.j2
+    dest: "{{ rpc_env_file }}"
+    owner: "{{ rpc_user }}"
+    group: "{{ rpc_group }}"
+    mode: '0644'
+  notify: Restart rpc service
+  tags: [rpc, config]
+
+- name: Create RPC systemd service
+  ansible.builtin.template:
+    src: monad-rpc.service.j2
+    dest: "/etc/systemd/system/{{ rpc_service_identifier }}.service"
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart rpc service
+  tags: [rpc, systemd]
+
+- name: Enable and start RPC service
+  ansible.builtin.systemd:
+    name: "{{ rpc_service_identifier }}"
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  tags: [rpc, service]

@@ -1,0 +1,9 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Restart rpc service
+  ansible.builtin.systemd:
+    name: "{{ rpc_service_identifier }}"
+    state: restarted

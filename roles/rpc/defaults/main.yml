@@ -1,0 +1,18 @@
+---
+rpc_service_identifier: "monad-rpc"
+rpc_user: "{{ monad_user }}"
+rpc_group: "{{ monad_group }}"
+
+rpc_home_dir: "{{ monad_home }}"
+rpc_bin_dir: "{{ rpc_home_dir }}/bin"
+rpc_log_dir: "{{ rpc_home_dir }}/log"
+rpc_log_file: "{{ rpc_log_dir }}/{{ rpc_service_identifier }}.log"
+rpc_env_dir: "{{ rpc_home_dir }}/environment"
+rpc_env_file: "{{ rpc_env_dir }}/{{ rpc_service_identifier }}.env"
+rpc_lib_dir: "{{ rpc_home_dir }}/lib"
+
+rpc_binary_name: "monad-rpc"
+
+rpc_memory_max: "64G"
+rpc_limit_nofile: 1048576
+rpc_restart_sec: 4
