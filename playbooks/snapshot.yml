@@ -172,5 +172,5 @@
 
     - name: Show status
       debug:
-        msg: "Snapshot applied from block {{ block_id }}. Service {{ svc.status.ActiveState }}. Check sync with: make sync"
+        msg: "Snapshot applied from block {{ block_id }}. Service {{ svc.status.ActiveState }}. Check sync with: make status"
       tags: [snapshot]

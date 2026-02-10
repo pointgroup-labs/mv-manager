@@ -54,7 +54,7 @@ make deploy
 make snapshot
 
 # Monitor sync progress
-make sync
+make status
 ```
 
 ## Configuration
@@ -165,7 +165,6 @@ make upgrade             # Upgrade monad packages to latest version
 ```bash
 make health              # Run health checks
 make status              # Show validator status (keys, sync, peers)
-make sync                # Show current block number
 make logs                # Tail consensus logs (LINES=100)
 make watch               # Stream logs in real-time with color
 ```
@@ -211,7 +210,7 @@ New nodes should sync from a snapshot rather than from genesis:
 ```bash
 make deploy              # Deploy node first
 make snapshot            # Download and apply latest snapshot
-make sync                # Monitor block height
+make status              # Monitor block height
 ```
 
 The snapshot is downloaded from Monad's official CDN. Depending on your bandwidth, this can take 30–60 minutes. After applying, the node will catch up the remaining blocks automatically.
@@ -254,7 +253,7 @@ journalctl -u monad-consensus -n 50    # View service logs on the server
 
 **Sync is stuck or slow**
 ```bash
-make sync                    # Check current block height
+make status                  # Check current block height
 make logs LINES=200          # Look for errors in recent logs
 make snapshot                # Re-apply snapshot if needed
 ```
