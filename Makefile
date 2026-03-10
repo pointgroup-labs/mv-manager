@@ -1,5 +1,7 @@
 INV := inventory/local.yml
-LOG := /opt/monad-consensus/log/monad-consensus.log
+CLOG := /home/monad/log/monad-consensus.log
+ELOG := /home/monad/execution/log/monad-execution.log
+RLOG := /home/monad/log/monad-rpc.log
 A := -i $(INV) $(if $(NODE),--limit $(NODE),)
 
 ## Deployment
@@ -28,18 +30,21 @@ health: ## Run health checks
 status: ## Show validator status [NODE=]
 	@./scripts/validator-info.sh "$(NODE)"
 
-logs: ## Tail consensus logs (LINES=100)
-	@ansible $(A) validators -m shell -a '\
-		tail -$(or $(LINES),100) $(LOG) | \
-		grep -E "INFO|WARN|ERROR" | tail -20'
+logs: ## Tail logs [SVC=consensus|execution|rpc] [LINES=50] [NODE=]
+	$(eval SVC := $(or $(SVC),consensus))
+	$(eval L := $(or $(LINES),50))
+	$(eval LOGPATH := $(if $(filter execution,$(SVC)),$(ELOG),$(if $(filter rpc,$(SVC)),$(RLOG),$(CLOG))))
+	@ansible $(A) validators -m shell -a 'tail -$(L) $(LOGPATH)' | ./scripts/colorize-logs.sh
 
-watch: ## Stream logs in real-time
-	@IP=$$(ansible-inventory $(A) --list 2>/dev/null | jq -r '.validators.hosts[0] as $$h | .["_meta"]["hostvars"][$$h]["ansible_host"]'); \
-	ssh root@$$IP 'tail -f $(LOG)' 2>/dev/null | ./scripts/colorize-logs.sh
+watch: ## Stream logs [SVC=consensus|execution|rpc] [NODE=]
+	$(eval SVC := $(or $(SVC),consensus))
+	$(eval LOGPATH := $(if $(filter execution,$(SVC)),$(ELOG),$(if $(filter rpc,$(SVC)),$(RLOG),$(CLOG))))
+	@IP=$$(ansible-inventory $(A) --list 2>/dev/null | jq -r '[._meta.hostvars | to_entries[] | select(.value.type=="validator")] | .[0].value.ansible_host'); \
+	ssh root@$$IP 'tail -f $(LOGPATH)' 2>/dev/null | ./scripts/colorize-logs.sh
 
 ## Operations
-restart: ## Restart services
-	@ansible $(A) validators -m shell -a 'systemctl restart monad-consensus monad-rpc'
+restart: ## Restart services (execution → consensus → rpc)
+	@ansible $(A) validators -m shell -a 'systemctl restart monad-execution && sleep 3 && systemctl restart monad-consensus && sleep 2 && systemctl restart monad-rpc'
 
 stop: ## Stop services
 	@ansible $(A) validators -m shell -a 'systemctl stop monad-rpc monad-consensus monad-execution'

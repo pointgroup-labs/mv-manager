@@ -11,27 +11,42 @@
     - ../group_vars/{{ env }}.yml
 
   tasks:
-    - name: Backup
-      command: "{{ monad_home }}/scripts/backup.sh"
+    - name: Backup keys and config
+      archive:
+        path:
+          - "{{ monad_key_dir }}"
+          - "{{ monad_config_dir }}"
+        dest: "{{ monad_home }}/backups/pre-upgrade-{{ monad_version }}-{{ ansible_date_time.iso8601_basic_short }}.tar.gz"
+        format: gz
       become_user: "{{ monad_user }}"
+      ignore_errors: yes
 
-    - name: Stop service
+    - name: Stop services
       systemd:
-        name: "{{ service_identifier }}"
+        name: "{{ item }}"
         state: stopped
+      loop:
+        - monad-rpc
+        - "{{ service_identifier }}"
+        - "{{ execution_service_identifier }}"
+      ignore_errors: yes
 
-    - name: Download new version
-      shell: |
-        cd {{ monad_home }}
-        aria2c -x 16 {{ monad_source_url }}/{{ monad_version }}/monad-{{ monad_version }}.tar.gz
-        tar -xzf monad-{{ monad_version }}.tar.gz -C {{ monad_bin_dir }}
-      become_user: "{{ monad_user }}"
+    - name: Upgrade monad package
+      apt:
+        name: "monad={{ monad_version }}"
+        state: present
+        update_cache: yes
 
-    - name: Start service
+    - name: Start services
       systemd:
-        name: "{{ service_identifier }}"
+        name: "{{ item }}"
         state: started
         enabled: yes
+      loop:
+        - "{{ execution_service_identifier }}"
+        - "{{ service_identifier }}"
+        - monad-rpc
+      ignore_errors: yes
 
     - name: Wait for RPC
       uri:

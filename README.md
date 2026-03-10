@@ -164,17 +164,17 @@ make upgrade             # Upgrade monad packages to latest version
 
 ```bash
 make health              # Run health checks
-make status              # Show validator status (keys, sync, peers)
-make logs                # Tail consensus logs (LINES=100)
-make watch               # Stream logs in real-time with color
+make status              # Validator dashboard (sync, voting, stake, resources)
+make logs                # Tail logs (SVC=consensus|execution|rpc LINES=50)
+make watch               # Stream logs with color (SVC=consensus|execution|rpc)
 ```
 
 ### Operations
 
 ```bash
-make restart             # Restart consensus + execution services
+make restart             # Restart execution → consensus → rpc
 make stop                # Stop all monad services
-make start               # Start execution, then consensus
+make start               # Start execution → consensus → rpc
 make backup              # Backup keys and config
 ```
 
@@ -248,13 +248,13 @@ Only P2P ports (8000, 8001) are exposed publicly. RPC and metrics are bound to l
 **Node won't start**
 ```bash
 make diagnose                # Check disk, memory, service status
-journalctl -u monad-consensus -n 50    # View service logs on the server
+make logs LINES=200          # View recent consensus logs on the server
 ```
 
 **Sync is stuck or slow**
 ```bash
 make status                  # Check current block height
-make logs LINES=200          # Look for errors in recent logs
+make logs SVC=consensus LINES=200  # Look for errors in recent logs
 make snapshot                # Re-apply snapshot if needed
 ```
 
