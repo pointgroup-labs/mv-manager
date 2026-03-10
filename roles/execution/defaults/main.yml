@@ -1,8 +1,8 @@
 ---
-execution_home_dir: "/opt/{{ execution_service_identifier }}"
+execution_home_dir: "{{ monad_home }}/execution"
 execution_service_identifier: "monad{{ '' if type == 'validator' else '-' + type }}-execution"
-execution_user: "{{ execution_service_identifier }}"
-execution_group: "{{ project }}"
+execution_user: "{{ monad_user }}"
+execution_group: "{{ monad_group }}"
 
 execution_bin_dir: "{{ execution_home_dir }}/bin"
 execution_config_dir: "{{ execution_home_dir }}/config"

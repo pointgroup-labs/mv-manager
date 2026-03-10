@@ -6,9 +6,10 @@ project: monad
 
 # Service identity
 service_identifier: "monad-consensus"
-monad_user: "monad-consensus"
-monad_group: "monad-consensus"
-monad_home: "/opt/monad-consensus"
+execution_service_identifier: "monad{{ '' if type == 'validator' else '-' + type }}-execution"
+monad_user: "monad"
+monad_group: "monad"
+monad_home: "/home/monad"
 
 monad_bin_dir: "{{ monad_home }}/bin"
 monad_config_dir: "{{ monad_home }}/config"
@@ -55,7 +56,7 @@ monad_control_panel_socket: "{{ monad_socket_dir }}/controlpanel.sock"
 monad_statesync_socket: "{{ monad_socket_dir }}/statesync.sock"
 
 # Monad release and network
-monad_version: "0.12.7"
+monad_version: "0.13.0"
 monad_bft_repo: "https://github.com/monad-developers/monad-bft.git"
 monad_bft_version: "main"
 monad_source_url: "https://pkg.category.xyz"
@@ -172,16 +173,6 @@ monitoring_enabled: true
 prometheus_port: 9100
 grafana_port: 3000
 
-# OpenTelemetry - sends metrics to Monad infrastructure
-otel_enabled: false
-otel_version: "0.96.0"
-otel_source_url: "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download"
-otel_monad_endpoint: "https://otel-external.monadinfra.com:443"
-otel_ports:
-  grpc: 4317
-  http: 4318
-  prometheus: 8889
-
 alert_disk_usage_percent: 85
 alert_memory_usage_percent: 90
 alert_cpu_usage_percent: 95
@@ -213,18 +204,3 @@ fail2ban_bantime: 3600
 systemd_memory_max: "64G"
 systemd_limit_nofile: 1048576
 systemd_restart_sec: 4
-
-# Docker mode (alternative to systemd, not recommended for production)
-use_docker: false
-use_prebuilt_images: true
-
-docker_edition: 'ce'
-docker_packages:
-  - docker-ce
-  - docker-ce-cli
-  - containerd.io
-  - docker-buildx-plugin
-  - docker-compose-plugin
-
-docker_users:
-  - "{{ monad_user }}"

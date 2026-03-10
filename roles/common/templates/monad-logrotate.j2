@@ -1,4 +1,6 @@
-{{ monad_logs_dir }}/*.log {
+{{ monad_logs_dir }}/*.log
+{{ monad_home }}/execution/log/*.log
+{{ monad_home }}/otel/log/*.log {
     daily
     missingok
     rotate 14

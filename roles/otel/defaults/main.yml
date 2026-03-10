@@ -1,11 +1,11 @@
 ---
-otel_enabled: true
+otel_enabled: false
 otel_version: "0.96.0"
 otel_service_identifier: "{{ service_identifier }}-otel"
-otel_user: "{{ otel_service_identifier }}"
-otel_group: "{{ project }}"
+otel_user: "{{ monad_user }}"
+otel_group: "{{ monad_group }}"
 
-otel_home_dir: "/opt/{{ otel_service_identifier }}"
+otel_home_dir: "{{ monad_home }}/otel"
 otel_bin_dir: "{{ otel_home_dir }}/bin"
 otel_config_dir: "{{ otel_home_dir }}/config"
 otel_log_dir: "{{ otel_home_dir }}/log"

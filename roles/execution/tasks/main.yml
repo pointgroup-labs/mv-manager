@@ -3,24 +3,6 @@
 # EXECUTION NODE SETUP
 # =============================================================================
 
-- name: Create execution group
-  ansible.builtin.group:
-    name: "{{ execution_group }}"
-    state: present
-  tags: [execution, user]
-
-- name: Create execution user
-  ansible.builtin.user:
-    name: "{{ execution_user }}"
-    group: "{{ execution_group }}"
-    groups: "{{ monad_group }}"
-    append: yes
-    shell: /bin/bash
-    home: "{{ execution_home_dir }}"
-    create_home: yes
-    system: yes
-  tags: [execution, user]
-
 - name: Create execution directories
   ansible.builtin.file:
     path: "{{ item }}"

@@ -3,22 +3,6 @@
 # OTEL COLLECTOR SETUP
 # =============================================================================
 
-- name: Create otel group
-  ansible.builtin.group:
-    name: "{{ otel_group }}"
-    state: present
-  tags: [otel, user]
-
-- name: Create otel user
-  ansible.builtin.user:
-    name: "{{ otel_user }}"
-    group: "{{ otel_group }}"
-    shell: /bin/bash
-    home: "{{ otel_home_dir }}"
-    create_home: yes
-    system: yes
-  tags: [otel, user]
-
 - name: Create otel directories
   ansible.builtin.file:
     path: "{{ item }}"
