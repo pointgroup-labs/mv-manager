@@ -219,6 +219,41 @@
   tags: [monad, start]
 
 # =============================================================================
+# MONAD-CRUFT COMPATIBILITY
+# =============================================================================
+- name: Create monad-bft symlink for monad-cruft compatibility
+  file:
+    src: "{{ monad_home }}"
+    dest: "{{ monad_home }}/monad-bft"
+    state: link
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+  tags: [monad, config]
+
+- name: Create ledger symlink for monad-cruft compatibility
+  file:
+    src: "{{ monad_data_dir }}"
+    dest: "{{ monad_home }}/ledger"
+    state: link
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    force: yes
+  tags: [monad, config]
+
+- name: Configure monad-cruft retention
+  copy:
+    dest: "{{ monad_home }}/.env"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0644'
+    content: |
+      RETENTION_LEDGER=600
+      RETENTION_WAL=300
+      RETENTION_FORKPOINT=300
+      RETENTION_VALIDATORS=43200
+  tags: [monad, config]
+
+# =============================================================================
 # MANAGEMENT SCRIPTS
 # =============================================================================
 - name: Create monad management scripts

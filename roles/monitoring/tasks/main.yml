@@ -1,7 +1,5 @@
-# Monitoring role - Set up Prometheus node exporter and alerting
 ---
-
-- name: Create monitoring user
+- name: Create prometheus user
   user:
     name: prometheus
     system: yes
@@ -9,28 +7,39 @@
     create_home: no
   tags: [monitoring]
 
+- name: Check node_exporter version
+  command: /usr/local/bin/node_exporter --version
+  register: ne_version_check
+  changed_when: false
+  failed_when: false
+  tags: [monitoring]
+
 - name: Download node_exporter
   get_url:
-    url: "https://github.com/prometheus/node_exporter/releases/download/v1.7.0/node_exporter-1.7.0.linux-amd64.tar.gz"
-    dest: /tmp/node_exporter.tar.gz
+    url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+    dest: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
     mode: '0644'
+  when: ne_version_check.rc != 0 or node_exporter_version not in (ne_version_check.stdout | default(''))
   tags: [monitoring]
 
 - name: Extract node_exporter
   unarchive:
-    src: /tmp/node_exporter.tar.gz
+    src: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
     dest: /tmp
     remote_src: yes
+  when: ne_version_check.rc != 0 or node_exporter_version not in (ne_version_check.stdout | default(''))
   tags: [monitoring]
 
 - name: Install node_exporter binary
   copy:
-    src: /tmp/node_exporter-1.7.0.linux-amd64/node_exporter
+    src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
     dest: /usr/local/bin/node_exporter
     remote_src: yes
     mode: '0755'
     owner: root
     group: root
+  notify: Restart node_exporter
+  when: ne_version_check.rc != 0 or node_exporter_version not in (ne_version_check.stdout | default(''))
   tags: [monitoring]
 
 - name: Create node_exporter systemd service
@@ -49,78 +58,11 @@
     daemon_reload: yes
   tags: [monitoring]
 
-- name: Create monad metrics exporter script
-  template:
-    src: monad-metrics.sh.j2
-    dest: "{{ monad_home }}/scripts/monad-metrics.sh"
-    owner: "{{ monad_user }}"
-    group: "{{ monad_group }}"
-    mode: '0755'
-  tags: [monitoring]
-
-- name: Create health check script
-  template:
-    src: health-check.sh.j2
-    dest: "{{ monad_home }}/scripts/health-check.sh"
-    owner: "{{ monad_user }}"
-    group: "{{ monad_group }}"
-    mode: '0755'
-  tags: [monitoring]
-
-- name: Create alerting script
-  template:
-    src: alert.sh.j2
-    dest: "{{ monad_home }}/scripts/alert.sh"
-    owner: "{{ monad_user }}"
-    group: "{{ monad_group }}"
-    mode: '0755'
-  tags: [monitoring]
-
-- name: Set up health check cron job
-  cron:
-    name: "Monad health check"
-    minute: "*/5"
-    job: "{{ monad_home }}/scripts/health-check.sh >> {{ monad_logs_dir }}/health-check.log 2>&1"
-    user: "{{ monad_user }}"
-  tags: [monitoring]
-
-- name: Create monad-bft symlink for monad-cruft compatibility
-  file:
-    src: "{{ monad_home }}"
-    dest: "{{ monad_home }}/monad-bft"
-    state: link
-    owner: "{{ monad_user }}"
-    group: "{{ monad_group }}"
-  tags: [monitoring]
-
-- name: Create ledger symlink for monad-cruft compatibility
-  file:
-    src: "{{ monad_data_dir }}"
-    dest: "{{ monad_home }}/ledger"
-    state: link
-    owner: "{{ monad_user }}"
-    group: "{{ monad_group }}"
-    force: yes
-  tags: [monitoring]
-
-- name: Configure monad-cruft retention
-  copy:
-    dest: "{{ monad_home }}/.env"
-    owner: "{{ monad_user }}"
-    group: "{{ monad_group }}"
-    mode: '0644'
-    content: |
-      RETENTION_LEDGER=600
-      RETENTION_WAL=300
-      RETENTION_FORKPOINT=300
-      RETENTION_VALIDATORS=43200
-  tags: [monitoring]
-
 - name: Clean up downloaded files
   file:
     path: "{{ item }}"
     state: absent
   loop:
-    - /tmp/node_exporter.tar.gz
-    - /tmp/node_exporter-1.7.0.linux-amd64
+    - "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+    - "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64"
   tags: [monitoring]

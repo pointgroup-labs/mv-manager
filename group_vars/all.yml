@@ -171,12 +171,6 @@ validator_stake_amount: 100000
 
 monitoring_enabled: true
 prometheus_port: 9100
-grafana_port: 3000
-
-alert_disk_usage_percent: 85
-alert_memory_usage_percent: 90
-alert_cpu_usage_percent: 95
-alert_sync_lag_blocks: 100
 
 backup_enabled: true
 backup_retention_days: 7
