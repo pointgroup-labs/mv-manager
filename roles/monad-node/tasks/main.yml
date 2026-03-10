@@ -61,6 +61,15 @@
     state: present
   tags: [monad, install]
 
+- name: Disable package-shipped monad-bft service (we manage our own)
+  systemd:
+    name: monad-bft
+    enabled: no
+    state: stopped
+    masked: yes
+  ignore_errors: yes
+  tags: [monad, install]
+
 # =============================================================================
 # CONFIGURATION DOWNLOADS
 # =============================================================================

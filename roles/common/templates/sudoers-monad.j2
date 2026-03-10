@@ -1,17 +1,18 @@
 # Sudoers configuration for monad user
-# Limited permissions for production security
 
-# Allow docker commands without password
-{{ monad_user }} ALL=(ALL) NOPASSWD: /usr/bin/docker
-{{ monad_user }} ALL=(ALL) NOPASSWD: /usr/bin/docker-compose
-{{ monad_user }} ALL=(ALL) NOPASSWD: /usr/bin/docker compose
-
-# Allow systemctl for monad services only
-{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl start monad-node
-{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl stop monad-node
-{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl restart monad-node
-{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl status monad-node
-{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl reload monad-node
+# Allow systemctl for monad services
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl start {{ service_identifier }}
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl stop {{ service_identifier }}
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl restart {{ service_identifier }}
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl status {{ service_identifier }}
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl start {{ execution_service_identifier }}
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl stop {{ execution_service_identifier }}
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl restart {{ execution_service_identifier }}
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl status {{ execution_service_identifier }}
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl start monad-rpc
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl stop monad-rpc
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl restart monad-rpc
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl status monad-rpc
 
 # Allow sysctl reload
 {{ monad_user }} ALL=(ALL) NOPASSWD: /sbin/sysctl -p *
