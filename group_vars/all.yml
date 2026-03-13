@@ -172,6 +172,8 @@ validator_stake_amount: 100000
 monitoring_enabled: true
 prometheus_port: 9100
 
+observability_enabled: false
+
 backup_enabled: true
 backup_retention_days: 7
 backup_schedule: "0 2 * * *"

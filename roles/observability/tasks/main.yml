@@ -1,0 +1,237 @@
+---
+- name: Install Docker
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-compose-v2
+      - python3-docker
+    state: present
+    update_cache: true
+  tags: [observability, docker]
+
+- name: Enable Docker service
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+  tags: [observability, docker]
+
+- name: Create observability directory structure
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - "{{ observability_dir }}"
+    - "{{ observability_dir }}/grafana"
+    - "{{ observability_dir }}/grafana/provisioning"
+    - "{{ observability_dir }}/grafana/provisioning/datasources"
+    - "{{ observability_dir }}/grafana/provisioning/dashboards"
+    - "{{ observability_dir }}/grafana/provisioning/alerting"
+    - "{{ observability_dir }}/grafana/dashboards"
+  tags: [observability, config]
+
+- name: Template Docker Compose file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ observability_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart observability stack
+  tags: [observability, config]
+
+- name: Template OTEL collector config
+  ansible.builtin.template:
+    src: otel-config.yml.j2
+    dest: "{{ observability_dir }}/otel-config.yml"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart observability stack
+  tags: [observability, config]
+
+- name: Template Prometheus config
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ observability_dir }}/prometheus.yml"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart observability stack
+  tags: [observability, config]
+
+- name: Template Grafana datasource
+  ansible.builtin.template:
+    src: grafana-datasource.yml.j2
+    dest: "{{ observability_dir }}/grafana/provisioning/datasources/datasource.yml"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart observability stack
+  tags: [observability, config]
+
+- name: Template Grafana dashboard provider
+  ansible.builtin.template:
+    src: grafana-dashboard-provider.yml.j2
+    dest: "{{ observability_dir }}/grafana/provisioning/dashboards/provider.yml"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart observability stack
+  tags: [observability, config]
+
+- name: Template Grafana alerting (Telegram)
+  ansible.builtin.template:
+    src: grafana-alerting.yml.j2
+    dest: "{{ observability_dir }}/grafana/provisioning/alerting/contact-points.yml"
+    owner: root
+    group: root
+    mode: '0644'
+  when: vault_telegram_bot_token is defined and vault_telegram_bot_token | default('') | length > 0
+  notify: Restart observability stack
+  tags: [observability, config]
+
+- name: Remove Telegram contact point if not configured
+  ansible.builtin.file:
+    path: "{{ observability_dir }}/grafana/provisioning/alerting/contact-points.yml"
+    state: absent
+  when: vault_telegram_bot_token is not defined or vault_telegram_bot_token | default('') | length == 0
+  tags: [observability, config]
+
+- name: Template Grafana alert rules
+  ansible.builtin.template:
+    src: grafana-alert-rules.yml.j2
+    dest: "{{ observability_dir }}/grafana/provisioning/alerting/alert-rules.yml"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart observability stack
+  tags: [observability, config]
+
+- name: Template Grafana dashboard
+  ansible.builtin.template:
+    src: grafana-dashboard.json.j2
+    dest: "{{ observability_dir }}/grafana/dashboards/monad-validator.json"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart observability stack
+  tags: [observability, config]
+
+- name: Create textfile collector directory
+  ansible.builtin.file:
+    path: /var/lib/node_exporter/textfile
+    state: directory
+    owner: "{{ monad_user }}"
+    group: prometheus
+    mode: '0775'
+  tags: [observability, exporter]
+
+- name: Check if node_exporter has textfile collector flag
+  ansible.builtin.shell:
+    cmd: grep -q 'collector.textfile' /etc/systemd/system/node_exporter.service
+  register: ne_textfile_check
+  changed_when: false
+  failed_when: false
+  tags: [observability, exporter]
+
+- name: Add textfile collector flag to node_exporter
+  ansible.builtin.replace:
+    path: /etc/systemd/system/node_exporter.service
+    regexp: '(--collector\.processes)$'
+    replace: '\1 \\\n    --collector.textfile.directory=/var/lib/node_exporter/textfile'
+  when: ne_textfile_check.rc != 0
+  notify:
+    - Reload systemd
+    - Restart node_exporter
+  tags: [observability, exporter]
+
+- name: Ensure node_exporter runs with textfile collector
+  ansible.builtin.shell:
+    cmd: cat /proc/$(pgrep -x node_exporter)/cmdline | tr '\0' ' ' | grep -q 'collector.textfile'
+  register: ne_running_check
+  changed_when: false
+  failed_when: false
+  tags: [observability, exporter]
+
+- name: Restart node_exporter if textfile flag missing from running process
+  ansible.builtin.systemd:
+    name: node_exporter
+    state: restarted
+    daemon_reload: true
+  when: ne_running_check.rc != 0
+  tags: [observability, exporter]
+
+- name: Template monad-exporter script
+  ansible.builtin.template:
+    src: monad-exporter.sh.j2
+    dest: "{{ monad_bin_dir }}/monad-exporter.sh"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0755'
+  tags: [observability, exporter]
+
+- name: Template monad-exporter systemd service
+  ansible.builtin.template:
+    src: monad-exporter.service.j2
+    dest: /etc/systemd/system/monad-exporter.service
+    mode: '0644'
+  notify: Reload systemd
+  tags: [observability, exporter]
+
+- name: Template monad-exporter systemd timer
+  ansible.builtin.template:
+    src: monad-exporter.timer.j2
+    dest: /etc/systemd/system/monad-exporter.timer
+    mode: '0644'
+  notify: Reload systemd
+  tags: [observability, exporter]
+
+- name: Enable and start monad-exporter timer
+  ansible.builtin.systemd:
+    name: monad-exporter.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+  tags: [observability, exporter]
+
+- name: Flush handlers before starting stack
+  ansible.builtin.meta: flush_handlers
+  tags: [observability, deploy]
+
+- name: Start observability stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ observability_dir }}"
+    state: present
+    pull: policy
+  tags: [observability, deploy]
+
+- name: Wait for Grafana to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ grafana_port }}/api/health"
+    status_code: 200
+  register: grafana_health
+  retries: 30
+  delay: 2
+  until: grafana_health.status == 200
+  tags: [observability, deploy]
+
+- name: Allow Grafana port through firewall
+  community.general.ufw:
+    rule: allow
+    port: "{{ grafana_port | string }}"
+    proto: tcp
+    comment: "Grafana dashboard"
+  tags: [observability, firewall]
+
+- name: Allow node_exporter access from Docker networks
+  community.general.ufw:
+    rule: allow
+    from_ip: 172.16.0.0/12
+    port: "{{ prometheus_port | string }}"
+    proto: tcp
+    comment: "node_exporter from Docker"
+  tags: [observability, firewall]

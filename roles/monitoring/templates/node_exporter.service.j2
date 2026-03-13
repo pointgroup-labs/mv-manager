@@ -9,7 +9,8 @@ Group=prometheus
 ExecStart=/usr/local/bin/node_exporter \
     --web.listen-address=:{{ prometheus_port }} \
     --collector.systemd \
-    --collector.processes
+    --collector.processes \
+    --collector.textfile.directory=/var/lib/node_exporter/textfile
 
 SyslogIdentifier=node_exporter
 Restart=always

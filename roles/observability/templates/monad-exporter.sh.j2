@@ -1,0 +1,178 @@
+#!/bin/bash
+# Monad custom metrics exporter for Prometheus textfile collector
+
+RPC_URL="http://localhost:{{ monad_rpc_port }}"
+CONTRACT="0x0000000000000000000000000000000000001000"
+VALIDATOR_ID="{{ validator_id | default('') }}"
+AUTH_ADDRESS="{{ auth_address | default('') }}"
+LOG_FILE="{{ monad_logs_dir }}/monad-consensus.log"
+PROM_FILE="/var/lib/node_exporter/textfile/monad.prom"
+TMP_FILE="${PROM_FILE}.$$"
+{% raw %}
+trap 'rm -f "$TMP_FILE"' EXIT
+
+rpc() {
+    curl -sf --max-time 5 -X POST "$RPC_URL" \
+      -H "Content-Type: application/json" \
+      -d "{\"jsonrpc\":\"2.0\",\"method\":\"$1\",\"params\":[$2],\"id\":1}" 2>/dev/null | jq -r '.result // empty' 2>/dev/null || true
+}
+
+eth_call() {
+    rpc "eth_call" "{\"to\":\"$CONTRACT\",\"data\":\"$1\"},\"latest\""
+}
+
+hex2dec() {
+    python3 -c "print(int('${1}', 16))" 2>/dev/null || echo 0
+}
+
+wei2mon() {
+    python3 -c "print(f'{int(${1}) / 1e18:.2f}')" 2>/dev/null || echo 0
+}
+
+collect() {
+    echo "# HELP monad_block_height Current block height from RPC"
+    echo "# TYPE monad_block_height gauge"
+    block_hex=$(rpc "eth_blockNumber" "")
+    if [ -n "$block_hex" ]; then
+        echo "monad_block_height $(hex2dec "$block_hex")"
+    fi
+
+    echo "# HELP monad_sync_status Node sync status (1=synced, 0=syncing)"
+    echo "# TYPE monad_sync_status gauge"
+    sync_result=$(curl -sf --max-time 5 -X POST "$RPC_URL" \
+      -H "Content-Type: application/json" \
+      -d '{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}' 2>/dev/null | jq -r '.result' 2>/dev/null || true)
+    if [ "$sync_result" = "false" ]; then
+        echo "monad_sync_status 1"
+    else
+        echo "monad_sync_status 0"
+    fi
+
+    echo "# HELP monad_epoch Current staking epoch"
+    echo "# TYPE monad_epoch gauge"
+    epoch_raw=$(eth_call "0x757991a8")
+    if [ -n "$epoch_raw" ] && [ ${#epoch_raw} -gt 2 ]; then
+        epoch_val=$(python3 -c "print(int('${epoch_raw}'[2:66], 16))" 2>/dev/null || true)
+        [ -n "$epoch_val" ] && echo "monad_epoch $epoch_val"
+    fi
+
+    if [ -n "$VALIDATOR_ID" ]; then
+        val_id_enc=$(printf "%064x" "$VALIDATOR_ID" 2>/dev/null) || val_id_enc=""
+        if [ -n "$val_id_enc" ]; then
+            val_raw=$(eth_call "0x2b6d639a${val_id_enc}")
+            if [ -n "$val_raw" ] && [ "${#val_raw}" -gt 66 ]; then
+                val_output=$(python3 << PYEOF 2>/dev/null || true
+h = '${val_raw}'[2:]
+n = len(h) // 64
+if n >= 5:
+    fields = [int(h[i*64:(i+1)*64], 16) for i in range(min(10, n))]
+    auth = '0x' + h[24:64]
+    print(f'AUTH_ADDR={auth}')
+    print('# HELP monad_validator_stake_mon Active stake in MON')
+    print('# TYPE monad_validator_stake_mon gauge')
+    print(f'monad_validator_stake_mon {fields[2] / 1e18:.2f}')
+    print('# HELP monad_validator_rewards_mon Unclaimed rewards in MON')
+    print('# TYPE monad_validator_rewards_mon gauge')
+    print(f'monad_validator_rewards_mon {fields[5] / 1e18:.2f}')
+    print('# HELP monad_validator_commission_pct Commission percentage')
+    print('# TYPE monad_validator_commission_pct gauge')
+    commission = fields[4] / 1e16 if fields[4] > 0 else 0
+    print(f'monad_validator_commission_pct {commission:.2f}')
+PYEOF
+                )
+                echo "$val_output" | grep -v '^AUTH_ADDR='
+                derived_addr=$(echo "$val_output" | grep '^AUTH_ADDR=' | cut -d= -f2)
+            fi
+        fi
+    fi
+
+    wallet_addr="${AUTH_ADDRESS:-$derived_addr}"
+    if [ -n "$wallet_addr" ]; then
+        echo "# HELP monad_wallet_balance_mon Auth wallet balance in MON"
+        echo "# TYPE monad_wallet_balance_mon gauge"
+        balance_hex=$(rpc "eth_getBalance" "\"$wallet_addr\",\"latest\"")
+        if [ -n "$balance_hex" ]; then
+            balance_wei=$(hex2dec "$balance_hex")
+            echo "monad_wallet_balance_mon $(wei2mon "$balance_wei")"
+        fi
+
+        if [ -n "$val_id_enc" ]; then
+            addr_hex=$(echo "${wallet_addr#0x}" | tr '[:upper:]' '[:lower:]')
+            addr_enc=$(printf "%064s" "$addr_hex" | tr ' ' '0')
+            deleg_raw=$(eth_call "0x573c1ce0${val_id_enc}${addr_enc}")
+            if [ -n "$deleg_raw" ] && [ "${#deleg_raw}" -gt 66 ]; then
+                pending_stake=$(python3 -c "
+h = '${deleg_raw}'[2:]
+n = len(h) // 64
+if n >= 4:
+    print(f'{int(h[3*64:4*64], 16) / 1e18:.2f}')
+else:
+    print('0.00')
+" 2>/dev/null || echo "0.00")
+                echo "# HELP monad_validator_pending_stake_mon Pending stake in MON"
+                echo "# TYPE monad_validator_pending_stake_mon gauge"
+                echo "monad_validator_pending_stake_mon $pending_stake"
+            fi
+        fi
+    fi
+
+    if [ ! -f "$LOG_FILE" ]; then
+        return
+    fi
+
+    log_tail=$(tail -5000 "$LOG_FILE" 2>/dev/null) || return
+    [ -z "$log_tail" ] && return
+
+    echo "# HELP monad_consensus_round Current consensus round"
+    echo "# TYPE monad_consensus_round gauge"
+    round=$(echo "$log_tail" | grep -oP '"round":"?\K\d+' | tail -1) || true
+    [ -n "$round" ] && echo "monad_consensus_round $round"
+
+    echo "# HELP monad_voting_rate_pct Vote success percentage over recent log window"
+    echo "# TYPE monad_voting_rate_pct gauge"
+    votes=$(echo "$log_tail" | grep -c "vote successful" || true)
+    rounds=$(echo "$log_tail" | grep -c "advancing round" || true)
+    if [ "${rounds:-0}" -gt 0 ]; then
+        pct=$((votes * 100 / rounds))
+        [ "$pct" -gt 100 ] && pct=100
+        echo "monad_voting_rate_pct $pct"
+    fi
+
+    echo "# HELP monad_skipped_rounds_pct Percentage of rounds without committed blocks"
+    echo "# TYPE monad_skipped_rounds_pct gauge"
+    first_commit=$(echo "$log_tail" | grep "committing block proposed" | head -1) || true
+    last_commit=$(echo "$log_tail" | grep "committing block proposed" | tail -1) || true
+    if [ -n "$first_commit" ] && [ -n "$last_commit" ]; then
+        first_r=$(echo "$first_commit" | grep -oP 'block_round":"?\K\d+') || true
+        last_r=$(echo "$last_commit" | grep -oP 'block_round":"?\K\d+') || true
+        first_s=$(echo "$first_commit" | grep -oP 'seq_num":"?\K\d+') || true
+        last_s=$(echo "$last_commit" | grep -oP 'seq_num":"?\K\d+') || true
+        if [ -n "$first_r" ] && [ -n "$last_r" ] && [ -n "$first_s" ] && [ -n "$last_s" ]; then
+            round_span=$((last_r - first_r))
+            block_span=$((last_s - first_s))
+            if [ "$round_span" -gt 0 ]; then
+                echo "monad_skipped_rounds_pct $(( (round_span - block_span) * 100 / round_span ))"
+            fi
+        fi
+    fi
+
+    echo "# HELP monad_network_participation_pct QC signer participation percentage"
+    echo "# TYPE monad_network_participation_pct gauge"
+    signer_line=$(echo "$log_tail" | grep "advancing round" | tail -1) || true
+    if [ -n "$signer_line" ]; then
+        total_bits=$(echo "$signer_line" | grep -oP 'bits: \K\d+' | head -1) || true
+        if [ -n "$total_bits" ] && [ "$total_bits" -gt 0 ]; then
+            ones=$(echo "$signer_line" | grep -oP '\[[\d, ]+\]' | head -1 | tr -cd '1' | wc -c) || true
+            [ -n "$ones" ] && echo "monad_network_participation_pct $(( ones * 100 / total_bits ))"
+        fi
+    fi
+
+    echo "# HELP monad_proposals_total Proposals made in recent log window"
+    echo "# TYPE monad_proposals_total gauge"
+    proposals=$(echo "$log_tail" | grep -c "proposal stats" || true)
+    echo "monad_proposals_total ${proposals:-0}"
+}
+
+collect > "$TMP_FILE"
+mv -f "$TMP_FILE" "$PROM_FILE" 2>/dev/null || rm -f "$TMP_FILE"
+{% endraw %}

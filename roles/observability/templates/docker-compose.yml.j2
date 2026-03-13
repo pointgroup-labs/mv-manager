@@ -1,0 +1,51 @@
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:{{ otel_collector_version }}
+    restart: unless-stopped
+    volumes:
+      - ./otel-config.yml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "127.0.0.1:{{ otel_grpc_port }}:4317"
+      - "127.0.0.1:{{ otel_http_port }}:4318"
+      - "127.0.0.1:{{ otel_prometheus_port }}:8889"
+      - "127.0.0.1:8888:8888"
+    mem_limit: 2g
+
+  prometheus:
+    image: prom/prometheus:{{ prometheus_version }}
+    restart: unless-stopped
+    depends_on:
+      - otel-collector
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:{{ prometheus_port_internal }}:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+
+  grafana:
+    image: grafana/grafana:{{ grafana_version }}
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "0.0.0.0:{{ grafana_port }}:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_admin_password }}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ALERTING_ENABLED: "false"
+      GF_UNIFIED_ALERTING_ENABLED: "true"
+
+volumes:
+  prometheus_data:
+  grafana_data:

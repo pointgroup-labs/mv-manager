@@ -1,0 +1,14 @@
+[Unit]
+Description=Monad custom metrics exporter
+After=network.target
+
+[Service]
+Type=oneshot
+User={{ monad_user }}
+ExecStart={{ monad_bin_dir }}/monad-exporter.sh
+TimeoutSec=30
+Nice=19
+ProtectSystem=strict
+ReadWritePaths=/var/lib/node_exporter/textfile
+ReadOnlyPaths={{ monad_logs_dir }}
+PrivateTmp=true

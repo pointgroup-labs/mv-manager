@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'otel-monad'
+    static_configs:
+      - targets: ['otel-collector:{{ otel_prometheus_port }}']
+
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8888']
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['host.docker.internal:{{ prometheus_port }}']

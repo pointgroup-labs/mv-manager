@@ -1,0 +1,1955 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Overview",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Monad node software version extracted from OTLP labels",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "text" },
+          "noValue": "N/A"
+        }
+      },
+      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 1 },
+      "id": 40,
+      "options": {
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "/^service_version$/"
+        },
+        "textMode": "auto"
+      },
+      "title": "Version",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "monad_total_uptime_us",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "__name__": true,
+              "env": true,
+              "exported_job": true,
+              "instance": true,
+              "job": true,
+              "network": true,
+              "node_name": true,
+              "otel_scope_name": true,
+              "service_name": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Current block height from RPC via custom exporter",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "noValue": "N/A",
+          "thresholds": {
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 1 },
+      "id": 21,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "Block Height",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "monad_block_height",
+          "legendFormat": "Block",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "1 = fully synced, 0 = currently syncing",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "yellow", "text": "SYNCING" },
+                "1": { "color": "green", "text": "SYNCED" }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "UNKNOWN",
+          "thresholds": {
+            "steps": [
+              { "color": "yellow", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 1 },
+      "id": 51,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "Sync Status",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "monad_sync_status",
+          "legendFormat": "Sync",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Current staking epoch from on-chain contract",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "noValue": "N/A",
+          "thresholds": {
+            "steps": [
+              { "color": "purple", "value": null }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 1 },
+      "id": 50,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "Epoch",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "monad_epoch",
+          "legendFormat": "Epoch",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Time since last system boot",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdurations",
+          "color": { "mode": "thresholds" },
+          "noValue": "N/A",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 3600 },
+              { "color": "green", "value": 86400 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 3, "w": 4, "x": 16, "y": 1 },
+      "id": 4,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "System Uptime",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "node_time_seconds - node_boot_time_seconds",
+          "legendFormat": "Uptime",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Validator's proportion of total network stake — directly reflects voting power and expected rewards",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "noValue": "N/A",
+          "thresholds": {
+            "steps": [
+              { "color": "purple", "value": null }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 1 },
+      "id": 54,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "Stake Weight",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "monad_state_node_state_self_stake_bps / 100",
+          "legendFormat": "Weight",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 4 },
+      "id": 101,
+      "title": "Services",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "red", "text": "DOWN" },
+                "1": { "color": "green", "text": "UP" }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "N/A",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 3, "w": 8, "x": 0, "y": 5 },
+      "id": 9,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "monad-consensus",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "node_systemd_unit_state{name=\"monad-consensus.service\", state=\"active\"}",
+          "legendFormat": "consensus",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "red", "text": "DOWN" },
+                "1": { "color": "green", "text": "UP" }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "N/A",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 3, "w": 8, "x": 8, "y": 5 },
+      "id": 10,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "monad-execution",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "node_systemd_unit_state{name=\"monad-execution.service\", state=\"active\"}",
+          "legendFormat": "execution",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "red", "text": "DOWN" },
+                "1": { "color": "green", "text": "UP" }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "N/A",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 3, "w": 8, "x": 16, "y": 5 },
+      "id": 11,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "monad-rpc",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "node_systemd_unit_state{name=\"monad-rpc.service\", state=\"active\"}",
+          "legendFormat": "rpc",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 },
+      "id": 110,
+      "title": "Staking & Rewards",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Active validator stake from staking contract",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "noValue": "N/A",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "light-purple", "value": null },
+              { "color": "purple", "value": 100000 },
+              { "color": "blue", "value": 1000000 }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Stake" },
+            "properties": [
+              { "id": "custom.displayName", "value": "Stake" }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 3, "w": 5, "x": 0, "y": 9 },
+      "id": 55,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "Stake (MON)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "monad_validator_stake_mon",
+          "legendFormat": "Stake",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Stake pending activation in next epoch",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "noValue": "N/A",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "light-blue", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 3, "w": 5, "x": 5, "y": 9 },
+      "id": 113,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "Pending Stake (MON)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "monad_validator_pending_stake_mon",
+          "legendFormat": "Pending",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Unclaimed staking rewards accumulating over time",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "noValue": "N/A",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "orange", "value": null }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 3, "w": 5, "x": 10, "y": 9 },
+      "id": 56,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "Rewards (MON)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "monad_validator_rewards_mon",
+          "legendFormat": "Rewards",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Validator commission percentage from staking contract",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "noValue": "N/A",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "orange", "value": 20 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 9 },
+      "id": 57,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "Commission",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "monad_validator_commission_pct",
+          "legendFormat": "Commission",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Auth wallet balance — used for gas fees and operations",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "noValue": "N/A",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "blue", "value": 10 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 3, "w": 5, "x": 15, "y": 9 },
+      "id": 53,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "Wallet (MON)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "monad_wallet_balance_mon",
+          "legendFormat": "Balance",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Trend of unclaimed rewards, auth wallet balance, and validator stake",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "spanNulls": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Stake (MON)" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "custom.axisLabel", "value": "Stake" }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 },
+      "id": 62,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Rewards, Wallet & Stake Over Time",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "monad_validator_rewards_mon", "legendFormat": "Rewards (MON)" },
+        { "expr": "monad_wallet_balance_mon", "legendFormat": "Wallet (MON)" },
+        { "expr": "monad_validator_stake_mon", "legendFormat": "Stake (MON)" }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 20 },
+      "id": 111,
+      "title": "Consensus Health",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Percentage of successful votes out of total rounds (from log parsing)",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "noValue": "N/A",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "green", "value": 95 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 21 },
+      "id": 58,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "Voting Rate",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "monad_voting_rate_pct",
+          "legendFormat": "Voting",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Percentage of rounds where no block was committed (lower is better)",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "noValue": "N/A",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 2 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 21 },
+      "id": 59,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "Skipped Rounds",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "monad_skipped_rounds_pct",
+          "legendFormat": "Skipped",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "QC signer participation percentage from bitvec in advancing round logs",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "noValue": "N/A",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "green", "value": 67 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 21 },
+      "id": 60,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "Net Participation",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "monad_network_participation_pct",
+          "legendFormat": "Participation",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Number of block proposals made in recent log window",
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "super-light-purple", "value": null },
+              { "color": "purple", "value": 1 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 21 },
+      "id": 61,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "Proposals",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "monad_proposals_total",
+          "legendFormat": "Proposals",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Voting rate, network participation, and skipped rounds trend",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "spanNulls": false
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 80 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 25 },
+      "id": 63,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Voting & Network Health",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "monad_voting_rate_pct", "legendFormat": "Voting %" },
+        { "expr": "monad_network_participation_pct", "legendFormat": "Network %" },
+        { "expr": "monad_skipped_rounds_pct", "legendFormat": "Skipped %" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Consensus event rates: votes, proposals, QC processing",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "spanNulls": false,
+            "drawStyle": "bars",
+            "barAlignment": 0
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 25 },
+      "id": 24,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Consensus Event Rate",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "rate(monad_state_consensus_events_created_vote[5m])", "legendFormat": "created_vote" },
+        { "expr": "rate(monad_state_consensus_events_vote_received[5m])", "legendFormat": "vote_received" },
+        { "expr": "rate(monad_state_consensus_events_handle_proposal[5m])", "legendFormat": "handle_proposal" },
+        { "expr": "rate(monad_state_consensus_events_process_qc[5m])", "legendFormat": "process_qc" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Timeout and error events — spikes indicate consensus issues",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "spanNulls": false
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 33 },
+      "id": 25,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Timeouts & Failures",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "rate(monad_state_consensus_events_local_timeout[5m])", "legendFormat": "local_timeout" },
+        { "expr": "rate(monad_state_consensus_events_remote_timeout_msg[5m])", "legendFormat": "remote_timeout" },
+        { "expr": "rate(monad_state_consensus_events_rx_execution_lagging[5m])", "legendFormat": "execution_lagging" },
+        { "expr": "rate(monad_state_consensus_events_out_of_order_proposals[5m])", "legendFormat": "out_of_order" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Block and transaction commit rates",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "spanNulls": false
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 33 },
+      "id": 22,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Block Commits",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "rate(monad_execution_ledger_num_commits[5m])", "legendFormat": "block_commits/s" },
+        { "expr": "rate(monad_execution_ledger_num_tx_commits[5m])", "legendFormat": "tx_commits/s" }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 },
+      "id": 109,
+      "title": "System Resources",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": {{ alert_disk_threshold }} }
+            ]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 42 },
+      "id": 1,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "title": "CPU Usage",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "CPU"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 90 }
+            ]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 42 },
+      "id": 2,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "title": "Memory Usage",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100",
+          "legendFormat": "RAM"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": {{ alert_disk_threshold }} }
+            ]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 42 },
+      "id": 3,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "title": "Disk Usage (/)",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "(1 - node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}) * 100",
+          "legendFormat": "Disk"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "1-minute load average normalized per CPU core — values above 1.0 indicate saturation",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "noValue": "N/A",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 2 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 42 },
+      "id": 45,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "Load / Core",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "node_load1 / scalar(count(node_cpu_seconds_total{mode=\"idle\"}))",
+          "legendFormat": "Load",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "N/A",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 42 },
+      "id": 46,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "Total RAM",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "node_memory_MemTotal_bytes",
+          "legendFormat": "RAM",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "TrieDB NVMe write throughput",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "noValue": "N/A",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "super-light-purple", "value": null },
+              { "color": "purple", "value": 104857600 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 42 },
+      "id": 44,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "title": "TrieDB I/O",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "rate(node_disk_written_bytes_total{device=\"md1p1\"}[5m])",
+          "legendFormat": "Write",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "spanNulls": false
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 46 },
+      "id": 5,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "CPU Over Time",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)", "legendFormat": "CPU %" },
+        { "expr": "avg(rate(node_cpu_seconds_total{mode=\"iowait\"}[5m])) * 100", "legendFormat": "IOWait %" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "spanNulls": false
+          },
+          "unit": "bytes"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 46 },
+      "id": 6,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Memory Over Time",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "node_memory_MemTotal_bytes", "legendFormat": "Total" },
+        { "expr": "node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes", "legendFormat": "Used" },
+        { "expr": "node_memory_Cached_bytes", "legendFormat": "Cached" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "spanNulls": false
+          },
+          "unit": "Bps"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 54 },
+      "id": 7,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Network I/O",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "rate(node_network_receive_bytes_total{device!=\"lo\"}[5m])", "legendFormat": "Recv {{ '{{' }}device{{ '}}' }}" },
+        { "expr": "-rate(node_network_transmit_bytes_total{device!=\"lo\"}[5m])", "legendFormat": "Send {{ '{{' }}device{{ '}}' }}" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "spanNulls": false
+          },
+          "unit": "Bps"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 54 },
+      "id": 8,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Disk I/O",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "rate(node_disk_read_bytes_total[5m])", "legendFormat": "Read {{ '{{' }}device{{ '}}' }}" },
+        { "expr": "-rate(node_disk_written_bytes_total[5m])", "legendFormat": "Write {{ '{{' }}device{{ '}}' }}" }
+      ]
+    },
+
+    {
+      "collapsed": true,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 62 },
+      "id": 112,
+      "title": "Execution Detail",
+      "type": "row",
+      "panels": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Execution timing breakdown by component",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 15,
+                "spanNulls": false
+              },
+              "unit": "\u00b5s"
+            }
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 63 },
+          "id": 26,
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "title": "Executor Timings",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "rate(monad_executor_ledger_total_exec_us[5m])", "legendFormat": "ledger_exec" },
+            { "expr": "rate(monad_executor_ledger_total_poll_us[5m])", "legendFormat": "ledger_poll" },
+            { "expr": "rate(monad_executor_router_total_exec_us[5m])", "legendFormat": "router_exec" },
+            { "expr": "rate(monad_executor_txpool_total_poll_us[5m])", "legendFormat": "txpool_poll" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "collapsed": true,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 63 },
+      "id": 103,
+      "title": "Txpool & Broadcasting",
+      "type": "row",
+      "panels": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Transaction pool size and insert rates",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 15,
+                "spanNulls": false
+              }
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 64 },
+          "id": 12,
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "title": "Txpool Activity",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "monad_bft_txpool_pool_tracked_txs", "legendFormat": "tracked_txs" },
+            { "expr": "monad_bft_txpool_pool_tracked_addresses", "legendFormat": "tracked_addresses" },
+            { "expr": "rate(monad_bft_txpool_pool_insert_owned_txs[5m])", "legendFormat": "insert_owned/s" },
+            { "expr": "rate(monad_bft_txpool_pool_insert_forwarded_txs[5m])", "legendFormat": "insert_forwarded/s" }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Transaction drop reasons — high values indicate issues",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 15,
+                "spanNulls": false
+              },
+              "unit": "ops"
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 64 },
+          "id": 16,
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "title": "Txpool Drops",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "rate(monad_bft_txpool_pool_drop_pool_full[5m])", "legendFormat": "pool_full" },
+            { "expr": "rate(monad_bft_txpool_pool_drop_nonce_too_low[5m])", "legendFormat": "nonce_too_low" },
+            { "expr": "rate(monad_bft_txpool_pool_drop_fee_too_low[5m])", "legendFormat": "fee_too_low" },
+            { "expr": "rate(monad_bft_txpool_pool_drop_replaced_by_higher_priority[5m])", "legendFormat": "replaced" }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Raptorcast UDP broadcast latency percentiles",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 15,
+                "spanNulls": false
+              },
+              "unit": "ms"
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 72 },
+          "id": 13,
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "title": "Broadcast Latency (p99)",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "monad_bft_raptorcast_udp_primary_broadcast_latency_p99_ms", "legendFormat": "primary p99" },
+            { "expr": "monad_bft_raptorcast_udp_secondary_broadcast_latency_p99_ms", "legendFormat": "secondary p99" }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Raptorcast secondary group membership and invite rates",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 15,
+                "spanNulls": false
+              }
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 72 },
+          "id": 27,
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "title": "Raptorcast Groups & Invites",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "monad_bft_raptorcast_secondary_client_num_current_groups", "legendFormat": "current_groups" },
+            { "expr": "monad_bft_raptorcast_secondary_publisher_current_group_size", "legendFormat": "group_size" },
+            { "expr": "rate(monad_bft_raptorcast_secondary_publisher_sent_invites[5m])", "legendFormat": "sent_invites/s" },
+            { "expr": "rate(monad_bft_raptorcast_secondary_client_received_confirms[5m])", "legendFormat": "received_confirms/s" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "collapsed": true,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 64 },
+      "id": 104,
+      "title": "Peer Discovery & Networking",
+      "type": "row",
+      "panels": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Total connected peers in the P2P network",
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "N/A",
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 5 },
+                  { "color": "green", "value": 20 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 5, "w": 4, "x": 0, "y": 65 },
+          "id": 28,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "textMode": "auto"
+          },
+          "title": "Total Peers",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "monad_peer_disc_num_peers",
+              "legendFormat": "Peers",
+              "instant": true,
+              "range": false
+            }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Number of upstream validators connected",
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "N/A",
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "steps": [
+                  { "color": "green", "value": null }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 5, "w": 4, "x": 4, "y": 65 },
+          "id": 29,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "textMode": "auto"
+          },
+          "title": "Upstream Validators",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "monad_peer_disc_num_upstream_validators",
+              "legendFormat": "Validators",
+              "instant": true,
+              "range": false
+            }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Peers in the process of connecting",
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "0",
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 50 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 5, "w": 4, "x": 8, "y": 65 },
+          "id": 30,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "textMode": "auto"
+          },
+          "title": "Pending Peers",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "monad_peer_disc_num_pending_peers",
+              "legendFormat": "Pending",
+              "instant": true,
+              "range": false
+            }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Peer count breakdown over time",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 15,
+                "spanNulls": false
+              }
+            }
+          },
+          "gridPos": { "h": 5, "w": 12, "x": 12, "y": 65 },
+          "id": 31,
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "title": "Peer Count Over Time",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "monad_peer_disc_num_peers", "legendFormat": "total_peers" },
+            { "expr": "monad_peer_disc_num_upstream_validators", "legendFormat": "upstream_validators" },
+            { "expr": "monad_peer_disc_num_pending_peers", "legendFormat": "pending_peers" }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Peer discovery protocol events: pings, pongs, lookups",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 15,
+                "spanNulls": false
+              },
+              "unit": "ops"
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 70 },
+          "id": 32,
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "title": "Peer Discovery Events",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "rate(monad_peer_disc_send_ping[5m])", "legendFormat": "send_ping" },
+            { "expr": "rate(monad_peer_disc_recv_pong[5m])", "legendFormat": "recv_pong" },
+            { "expr": "rate(monad_peer_disc_send_lookup_request[5m])", "legendFormat": "send_lookup" },
+            { "expr": "rate(monad_peer_disc_recv_lookup_response[5m])", "legendFormat": "recv_lookup_resp" }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "WireAuth UDP session lifecycle",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 15,
+                "spanNulls": false
+              }
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 70 },
+          "id": 33,
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "title": "WireAuth UDP Sessions",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "monad_wireauth_udp_state_total_sessions", "legendFormat": "total_sessions" },
+            { "expr": "rate(monad_wireauth_udp_state_session_established_initiator[5m])", "legendFormat": "established_initiator/s" },
+            { "expr": "rate(monad_wireauth_udp_state_session_established_responder[5m])", "legendFormat": "established_responder/s" },
+            { "expr": "rate(monad_wireauth_udp_state_session_terminated[5m])", "legendFormat": "terminated/s" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "collapsed": true,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 65 },
+      "id": 105,
+      "title": "Block Sync & Statesync",
+      "type": "row",
+      "panels": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Block sync request/response rates for headers and payloads",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 15,
+                "spanNulls": false
+              },
+              "unit": "ops"
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 66 },
+          "id": 34,
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "title": "Block Sync Requests",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "rate(monad_state_blocksync_events_peer_headers_request[5m])", "legendFormat": "headers_request" },
+            { "expr": "rate(monad_state_blocksync_events_peer_headers_request_successful[5m])", "legendFormat": "headers_success" },
+            { "expr": "rate(monad_state_blocksync_events_peer_payload_request[5m])", "legendFormat": "payload_request" },
+            { "expr": "rate(monad_state_blocksync_events_payload_response_successful[5m])", "legendFormat": "payload_success" }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Statesync progress and server request handling",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 15,
+                "spanNulls": false
+              }
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 66 },
+          "id": 35,
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "title": "Statesync",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "monad_statesync_syncing", "legendFormat": "syncing" },
+            { "expr": "monad_statesync_server_pending_requests", "legendFormat": "server_pending_requests" },
+            { "expr": "rate(monad_statesync_server_num_syncdone_success[5m])", "legendFormat": "syncdone_success/s" },
+            { "expr": "rate(monad_statesync_server_num_syncdone_failed[5m])", "legendFormat": "syncdone_failed/s" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "collapsed": true,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 66 },
+      "id": 106,
+      "title": "RPC",
+      "type": "row",
+      "panels": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Currently active RPC requests being processed",
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "0",
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 100 },
+                  { "color": "red", "value": 500 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 8, "w": 4, "x": 0, "y": 67 },
+          "id": 36,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "textMode": "auto"
+          },
+          "title": "Active RPC Requests",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "monad_rpc_active_requests",
+              "legendFormat": "Active",
+              "instant": true,
+              "range": false
+            }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "End-to-end RPC request duration percentiles",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 15,
+                "spanNulls": false
+              },
+              "unit": "s"
+            }
+          },
+          "gridPos": { "h": 8, "w": 10, "x": 4, "y": 67 },
+          "id": 37,
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "title": "RPC Request Duration",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "histogram_quantile(0.50, sum by (le) (rate(monad_rpc_request_duration_seconds_bucket[5m])))", "legendFormat": "p50" },
+            { "expr": "histogram_quantile(0.95, sum by (le) (rate(monad_rpc_request_duration_seconds_bucket[5m])))", "legendFormat": "p95" },
+            { "expr": "histogram_quantile(0.99, sum by (le) (rate(monad_rpc_request_duration_seconds_bucket[5m])))", "legendFormat": "p99" }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "RPC execution time (excluding queue wait)",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 15,
+                "spanNulls": false
+              },
+              "unit": "s"
+            }
+          },
+          "gridPos": { "h": 8, "w": 10, "x": 14, "y": 67 },
+          "id": 38,
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "title": "RPC Execution Duration",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "histogram_quantile(0.50, sum by (le) (rate(monad_rpc_execution_duration_seconds_bucket[5m])))", "legendFormat": "p50" },
+            { "expr": "histogram_quantile(0.95, sum by (le) (rate(monad_rpc_execution_duration_seconds_bucket[5m])))", "legendFormat": "p95" },
+            { "expr": "histogram_quantile(0.99, sum by (le) (rate(monad_rpc_execution_duration_seconds_bucket[5m])))", "legendFormat": "p99" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "collapsed": true,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 67 },
+      "id": 107,
+      "title": "OTEL Collector Health",
+      "type": "row",
+      "panels": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "OTEL collector metric point throughput",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 15,
+                "spanNulls": false
+              },
+              "unit": "ops"
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 68 },
+          "id": 17,
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "title": "Collector Metric Points",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "rate(otelcol_receiver_accepted_metric_points[5m])", "legendFormat": "Received" },
+            { "expr": "rate(otelcol_exporter_sent_metric_points[5m])", "legendFormat": "Exported {{ '{{' }}exporter{{ '}}' }}" },
+            { "expr": "rate(otelcol_receiver_refused_metric_points[5m])", "legendFormat": "Refused" }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "OTEL exporter queue size and send failures",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 15,
+                "spanNulls": false
+              }
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 68 },
+          "id": 39,
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "title": "Collector Queue & Errors",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "otelcol_exporter_queue_size", "legendFormat": "queue_size {{ '{{' }}exporter{{ '}}' }}" },
+            { "expr": "rate(otelcol_exporter_send_failed_metric_points[5m])", "legendFormat": "send_failed {{ '{{' }}exporter{{ '}}' }}" },
+            { "expr": "rate(otelcol_processor_batch_batch_send_size_sum[5m])", "legendFormat": "batch_send_size" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "collapsed": true,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 68 },
+      "id": 108,
+      "title": "Scrape Targets",
+      "type": "row",
+      "panels": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                {
+                  "options": {
+                    "0": { "color": "red", "text": "DOWN" },
+                    "1": { "color": "green", "text": "UP" }
+                  },
+                  "type": "value"
+                }
+              ],
+              "noValue": "N/A",
+              "thresholds": {
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "green", "value": 1 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 4, "w": 8, "x": 0, "y": 69 },
+          "id": 14,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "textMode": "auto"
+          },
+          "title": "OTEL Monad Metrics",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "up{job=\"otel-monad\"}",
+              "legendFormat": "otel-monad",
+              "instant": true,
+              "range": false
+            }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                {
+                  "options": {
+                    "0": { "color": "red", "text": "DOWN" },
+                    "1": { "color": "green", "text": "UP" }
+                  },
+                  "type": "value"
+                }
+              ],
+              "noValue": "N/A",
+              "thresholds": {
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "green", "value": 1 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 4, "w": 8, "x": 8, "y": 69 },
+          "id": 18,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "textMode": "auto"
+          },
+          "title": "OTEL Collector Internal",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "up{job=\"otel-collector\"}",
+              "legendFormat": "otel-collector",
+              "instant": true,
+              "range": false
+            }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                {
+                  "options": {
+                    "0": { "color": "red", "text": "DOWN" },
+                    "1": { "color": "green", "text": "UP" }
+                  },
+                  "type": "value"
+                }
+              ],
+              "noValue": "N/A",
+              "thresholds": {
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "green", "value": 1 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 4, "w": 8, "x": 16, "y": 69 },
+          "id": 15,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "textMode": "auto"
+          },
+          "title": "Node Exporter",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "up{job=\"node-exporter\"}",
+              "legendFormat": "node-exporter",
+              "instant": true,
+              "range": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["monad", "validator"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Monad Validator",
+  "uid": "monad-validator",
+  "version": 1
+}

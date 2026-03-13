@@ -38,6 +38,10 @@
       tags: [backup]
       when: backup_enabled | default(true)
 
+    - role: observability
+      tags: [observability]
+      when: observability_enabled | default(false)
+
   post_tasks:
     - name: Deployment complete
       debug:

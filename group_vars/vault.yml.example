@@ -2,18 +2,18 @@
 # Copy to vault.yml and fill in your values
 # Then encrypt: ansible-vault encrypt group_vars/vault.yml
 
-vault_validator_01_ip: "YOUR_SERVER_IP"
-
-# IKM (Initial Key Material) from monad-keystore create output
-# Keep your IKM secure - it regenerates your keys
+# IKM (Initial Key Material) - used to regenerate keystores
 vault_secp_ikm: "64_hex_chars"
 vault_bls_ikm: "64_hex_chars"
+
+# Wallet with MON for staking (min 100k MON) - fill when ready to register
+vault_funded_wallet_private_key: ""
+vault_beneficiary_address: "0x..."
+vault_auth_address: ""
 
 # Keystore password (generate with: openssl rand -base64 32)
 vault_keystore_password: "YOUR_KEYSTORE_PASSWORD"
 
-# Staking (optional - for validator registration)
-# Wallet with 100k+ MON for self-stake
-vault_funded_wallet_private_key: ""
-vault_beneficiary_address: "0x..."
-vault_auth_address: ""
+# Telegram alerts (optional)
+vault_telegram_bot_token: ""
+vault_telegram_chat_id: ""

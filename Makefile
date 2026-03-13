@@ -23,6 +23,9 @@ register: ## Register validator (requires synced node + 100k MON)
 upgrade: ## Upgrade monad packages
 	ansible-playbook $(A) playbooks/upgrade-node.yml
 
+observability: ## Deploy observability stack (Prometheus + Grafana)
+	ansible-playbook $(A) playbooks/setup-observability.yml
+
 ## Monitoring
 health: ## Run health checks
 	ansible-playbook $(A) playbooks/maintenance.yml --tags health
@@ -66,6 +69,10 @@ diagnose: ## Show diagnostic info
 ping: ## Test connectivity
 	@ansible $(A) all -m ping
 
+grafana: ## Show Grafana dashboard URL
+	@IP=$$(ansible-inventory $(A) --list 2>/dev/null | jq -r '[._meta.hostvars | to_entries[] | select(.value.type=="validator")] | .[0].value.ansible_host'); \
+	echo "Grafana: http://$$IP:3000"
+
 hardware: ## Show hardware specs (CPU, RAM, storage)
 	@./scripts/hardware-info.sh "$(NODE)"
 
@@ -77,6 +84,7 @@ ssh: ## SSH to first validator
 
 check: ## Syntax check playbooks
 	@ansible-playbook $(A) playbooks/deploy-validator.yml --syntax-check
+	@ansible-playbook $(A) playbooks/setup-observability.yml --syntax-check
 
 ## Vault
 vault-edit: ## Edit vault secrets
@@ -97,4 +105,4 @@ help:
 	@echo ""
 
 .DEFAULT_GOAL := help
-.PHONY: deploy snapshot execution rpc register upgrade health status logs watch restart stop start backup recovery diagnose ping hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help
+.PHONY: deploy snapshot execution rpc register upgrade observability health status logs watch restart stop start backup recovery diagnose ping grafana hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help
