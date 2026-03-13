@@ -75,6 +75,10 @@ vault_keystore_password: "your_password"
 vault_funded_wallet_private_key: "wallet_with_100k_MON"
 vault_beneficiary_address: "0x..."
 vault_auth_address: "0x..."
+
+# Telegram alerts (optional — for observability stack)
+vault_telegram_bot_token: ""
+vault_telegram_chat_id: ""
 ```
 
 Always encrypt after editing:
@@ -98,6 +102,7 @@ all:
             my-validator:
               ansible_host: "1.2.3.4"
               type: validator
+              validator_id: 123
               setup_triedb: true
               register_validator: false
 
@@ -113,10 +118,12 @@ all:
             validator-01:
               ansible_host: "1.2.3.4"
               type: validator
+              validator_id: 123
               setup_triedb: true
             validator-02:
               ansible_host: "5.6.7.8"
               type: validator
+              validator_id: 456
               setup_triedb: true
 ```
 
@@ -138,6 +145,7 @@ monad-node      → Download binaries, node.toml config, systemd service
 validator       → Staking CLI, key generation, registration scripts
 monitoring      → Health check scripts, alert thresholds
 backup          → Automated backup scripts (daily, 7-day retention)
+observability   → Prometheus, Grafana, OTEL collector, custom exporter (opt-in)
 ```
 
 Each role can run independently using tags:
@@ -158,6 +166,7 @@ make snapshot            # Download and apply snapshot for fast sync
 make execution           # Setup execution layer (statesync socket)
 make register            # Register as validator (requires synced node + 100k MON)
 make upgrade             # Upgrade monad packages to latest version
+make observability       # Deploy observability stack (Prometheus + Grafana)
 ```
 
 ### Monitoring
@@ -167,6 +176,7 @@ make health              # Run health checks
 make status              # Validator dashboard (sync, voting, stake, resources)
 make logs                # Tail logs (SVC=consensus|execution|rpc LINES=50)
 make watch               # Stream logs with color (SVC=consensus|execution|rpc)
+make grafana             # Show Grafana dashboard URL
 ```
 
 ### Operations
@@ -238,10 +248,36 @@ The registration script stakes MON, submits your validator keys on-chain, and be
 | 8000 | TCP/UDP | Public | P2P consensus |
 | 8001 | UDP | Public | Auth |
 | 8002 | TCP | Localhost only | JSON-RPC |
-| 4317 | TCP | Localhost only | OTEL gRPC (if enabled) |
-| 8889 | TCP | Localhost only | Prometheus metrics (if enabled) |
+| 3000 | TCP | Public | Grafana dashboard (if observability enabled) |
+| 9090 | TCP | Localhost only | Prometheus (Docker internal) |
+| 4317 | TCP | Localhost only | OTEL gRPC (Docker internal) |
 
-Only P2P ports (8000, 8001) are exposed publicly. RPC and metrics are bound to localhost by default.
+Only P2P ports (8000, 8001) are exposed publicly. RPC and internal services are bound to localhost. Grafana (3000) is exposed through the firewall when the observability stack is deployed.
+
+## Observability
+
+An optional monitoring stack that runs alongside the validator node:
+
+```bash
+make observability       # Deploy the stack
+make grafana             # Print Grafana URL
+```
+
+**What's included:**
+- **Grafana** dashboard with validator health, staking metrics, consensus stats, and system resources
+- **Prometheus** scraping node_exporter and custom monad metrics
+- **OTEL Collector** forwarding telemetry to Monad infra
+- **Custom monad exporter** that queries the RPC and staking contract every 30s, producing Prometheus metrics via textfile collector
+
+**Metrics exported** by the monad exporter:
+- Block height, sync status, epoch
+- Validator stake, pending stake, unclaimed rewards, commission
+- Wallet balance
+- Consensus round, voting rate, skipped rounds, network participation, proposals
+
+**Alerting** (optional): Configure `vault_telegram_bot_token` and `vault_telegram_chat_id` in vault for Telegram alerts on sync loss, high disk, and service failures.
+
+The stack is opt-in: set `observability_enabled: true` in your inventory or run `make observability` as a standalone playbook.
 
 ## Troubleshooting
 
