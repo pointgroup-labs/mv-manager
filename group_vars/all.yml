@@ -181,7 +181,7 @@ backup_destination: "{{ monad_home }}/backups"
 
 # Security
 ssh_port: 22
-ssh_permit_root_login: "no"
+ssh_permit_root_login: "prohibit-password"
 ssh_password_authentication: "no"
 
 firewall_allowed_tcp_ports:
