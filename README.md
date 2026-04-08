@@ -36,13 +36,13 @@ cd mv-manager
 ansible-galaxy install -r requirements.yml
 
 # Configure secrets
-cp group_vars/vault.yml.example group_vars/vault.yml
-vim group_vars/vault.yml
-ansible-vault encrypt group_vars/vault.yml
+cp group_vars/vault.yml.example group_vars/vault-testnet.yml
+vim group_vars/vault-testnet.yml
+ansible-vault encrypt group_vars/vault-testnet.yml
 
 # Configure inventory
-cp inventory/testnet.yml inventory/local.yml
-vim inventory/local.yml     # set your server IP
+cp inventory/example.yml inventory/testnet.yml
+vim inventory/testnet.yml     # set your server IP
 
 # Test connectivity
 make ping
@@ -59,9 +59,9 @@ make status
 
 ## Configuration
 
-### Secrets (`group_vars/vault.yml`)
+### Secrets (`group_vars/vault-<env>.yml`)
 
-Copy from the example and fill in your values:
+Copy from the example for each network:
 
 ```yaml
 # IKM (Initial Key Material) - generates your SECP and BLS keys
@@ -84,10 +84,13 @@ vault_telegram_chat_id: ""
 Always encrypt after editing:
 
 ```bash
-make vault-encrypt
+make vault-encrypt          # ENV=testnet by default
+make vault-encrypt ENV=mainnet
 ```
 
-### Inventory (`inventory/local.yml`)
+### Inventory (`inventory/<env>.yml`)
+
+Create one per network (gitignored — contains server IPs):
 
 ```yaml
 all:
@@ -141,7 +144,7 @@ make restart NODE=validator-02
 ```
 common          → Preflight checks, firewall (UFW), fail2ban, sudoers
 prepare_server  → System packages, kernel tuning, hugepages, TrieDB disk
-monad-node      → Download binaries, node.toml config, systemd service
+monad-node      → Install monad package (apt), node.toml config, systemd service
 validator       → Staking CLI, key generation, registration scripts
 monitoring      → Health check scripts, alert thresholds
 backup          → Automated backup scripts (daily, 7-day retention)
@@ -151,12 +154,12 @@ observability   → Prometheus, Grafana, OTEL collector, custom exporter (opt-in
 Each role can run independently using tags:
 
 ```bash
-ansible-playbook -i inventory/local.yml playbooks/deploy-validator.yml --tags monad
+ansible-playbook -i inventory/testnet.yml playbooks/deploy-validator.yml --tags monad
 ```
 
 ## Commands
 
-Run `make help` to see all available commands. All commands support `NODE=<name>` to target a specific host.
+Run `make help` to see all available commands. All commands support `ENV=testnet|mainnet` and `NODE=<name>` to target a specific network or host.
 
 ### Deployment
 
@@ -165,6 +168,7 @@ make deploy              # Full deployment pipeline
 make snapshot            # Download and apply snapshot for fast sync
 make execution           # Setup execution layer (statesync socket)
 make register            # Register as validator (requires synced node + 100k MON)
+make rpc                 # Setup JSON-RPC server
 make upgrade             # Upgrade monad packages to latest version
 make observability       # Deploy observability stack (Prometheus + Grafana)
 ```
@@ -176,7 +180,7 @@ make health              # Run health checks
 make status              # Validator dashboard (sync, voting, stake, resources)
 make logs                # Tail logs (SVC=consensus|execution|rpc LINES=50)
 make watch               # Stream logs with color (SVC=consensus|execution|rpc)
-make grafana             # Show Grafana dashboard URL
+make grafana             # Open Grafana via SSH tunnel
 ```
 
 ### Operations
@@ -186,6 +190,7 @@ make restart             # Restart execution → consensus → rpc
 make stop                # Stop all monad services
 make start               # Start execution → consensus → rpc
 make backup              # Backup keys and config
+make commission          # Set commission rate (RATE=20 NODE=name)
 ```
 
 ### Recovery
@@ -243,16 +248,31 @@ The registration script stakes MON, submits your validator keys on-chain, and be
 
 ## Network Ports
 
+**Validator:**
+
 | Port | Protocol | Direction | Purpose |
 |------|----------|-----------|---------|
 | 8000 | TCP/UDP | Public | P2P consensus |
 | 8001 | UDP | Public | Auth |
 | 8002 | TCP | Localhost only | JSON-RPC |
-| 3000 | TCP | Public | Grafana dashboard (if observability enabled) |
+
+**Fullnode:**
+
+| Port | Protocol | Direction | Purpose |
+|------|----------|-----------|---------|
+| 8010 | TCP/UDP | Public | P2P consensus |
+| 8011 | UDP | Public | Auth |
+| 8090 | TCP | Localhost only | JSON-RPC |
+
+**Observability (opt-in):**
+
+| Port | Protocol | Direction | Purpose |
+|------|----------|-----------|---------|
+| 3000 | TCP | Public | Grafana dashboard |
 | 9090 | TCP | Localhost only | Prometheus (Docker internal) |
 | 4317 | TCP | Localhost only | OTEL gRPC (Docker internal) |
 
-Only P2P ports (8000, 8001) are exposed publicly. RPC and internal services are bound to localhost. Grafana (3000) is exposed through the firewall when the observability stack is deployed.
+Only P2P and auth ports are exposed publicly. RPC and internal services are bound to localhost. Grafana (3000) is exposed through the firewall when the observability stack is deployed.
 
 ## Observability
 
@@ -260,7 +280,7 @@ An optional monitoring stack that runs alongside the validator node:
 
 ```bash
 make observability       # Deploy the stack
-make grafana             # Print Grafana URL
+make grafana             # Open Grafana via SSH tunnel
 ```
 
 **What's included:**
