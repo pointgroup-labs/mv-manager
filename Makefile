@@ -63,7 +63,13 @@ backup: ## Backup keys and config
 	ansible-playbook $(A) playbooks/maintenance.yml --tags backup
 
 commission: ## Set commission rate [RATE=20] [NODE=]
-	@ansible $(A) validators -m shell -a '/home/monad/scripts/set-commission.sh $(or $(RATE),20)'
+	@ansible $(A) validators --become-user monad -m shell -a '/home/monad/scripts/set-commission.sh $(or $(RATE),20)'
+
+claim: ## Claim validator rewards [NODE=]
+	@ansible $(A) validators --become-user monad -m shell -a '/home/monad/scripts/claim-rewards.sh'
+
+compound: ## Compound rewards (claim + restake) [NODE=]
+	@ansible $(A) validators --become-user monad -m shell -a '/home/monad/scripts/compound-rewards.sh'
 
 ## Recovery
 recovery: ## Run recovery playbook
@@ -118,4 +124,4 @@ help:
 	@echo ""
 
 .DEFAULT_GOAL := help
-.PHONY: deploy snapshot execution rpc register upgrade observability health status logs watch restart stop start backup commission recovery diagnose ping grafana hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help
+.PHONY: deploy snapshot execution rpc register upgrade observability health status logs watch restart stop start backup commission claim compound recovery diagnose ping grafana hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help
