@@ -1,7 +1,7 @@
 [Unit]
 Description={{ rpc_service_identifier }}
-After=monad-consensus.service monad-execution.service
-Wants=monad-consensus.service monad-execution.service
+After={{ service_identifier }}.service {{ execution_service_identifier }}.service
+Wants={{ service_identifier }}.service {{ execution_service_identifier }}.service
 
 [Service]
 User={{ rpc_user }}

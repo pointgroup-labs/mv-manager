@@ -1,6 +1,5 @@
 ---
 execution_home_dir: "{{ monad_home }}/execution"
-execution_service_identifier: "monad{{ '' if type == 'validator' else '-' + type }}-execution"
 execution_user: "{{ monad_user }}"
 execution_group: "{{ monad_group }}"
 
@@ -26,6 +25,8 @@ execution_ipc_socket: "{{ execution_socket_dir }}/execution.sock"
 
 execution_chain: "monad_{{ env }}"
 execution_log_level: "INFO"
+execution_nthreads: 4
+execution_nfibers: 256
 execution_sq_thread_cpu: 1
 
 execution_memory_max: "96G"
