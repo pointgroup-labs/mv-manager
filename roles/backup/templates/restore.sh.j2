@@ -35,7 +35,7 @@ if [ "$confirm" != "yes" ]; then
 fi
 
 echo "Stopping Monad services..."
-sudo systemctl stop monad-rpc || true
+sudo systemctl stop {{ rpc_service_identifier }} || true
 sudo systemctl stop {{ service_identifier }} || true
 sudo systemctl stop {{ execution_service_identifier }} || true
 
@@ -47,8 +47,8 @@ sudo systemctl start {{ execution_service_identifier }}
 sleep 3
 sudo systemctl start {{ service_identifier }}
 sleep 2
-sudo systemctl start monad-rpc
+sudo systemctl start {{ rpc_service_identifier }}
 
 echo ""
 echo "Restore completed!"
-echo "Check node status with: {{ monad_home }}/scripts/health-check.sh"
+echo "Check node status with: {{ monad_home }}/scripts/check-sync.sh"

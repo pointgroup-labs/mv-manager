@@ -71,7 +71,7 @@
   when: backup_enabled
   tags: [backup]
 
-- name: Perform initial key backup
-  command: "{{ monad_home }}/scripts/backup-keys.sh"
-  become_user: "{{ monad_user }}"
+- name: Note about key backup
+  debug:
+    msg: "Run ~/scripts/backup-keys.sh manually to create an encrypted key backup"
   tags: [backup, keys]

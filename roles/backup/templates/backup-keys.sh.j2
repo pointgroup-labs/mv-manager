@@ -19,8 +19,8 @@ echo "Losing the password means losing access to keys!"
 echo ""
 
 # Check if keys exist
-if [ ! -d "{{ monad_key_dir }}/id-secp" ] || [ ! -d "{{ monad_key_dir }}/id-bls" ]; then
-  echo "Key directories not found. Has the node been initialized?"
+if [ ! -f "{{ monad_key_dir }}/id-secp" ] || [ ! -f "{{ monad_key_dir }}/id-bls" ]; then
+  echo "Key files not found. Has the node been initialized?"
   exit 1
 fi
 
@@ -44,10 +44,12 @@ if [ "$PASSWORD" != "$PASSWORD_CONFIRM" ]; then
   exit 1
 fi
 
+export PASSWORD
 openssl enc -aes-256-cbc -salt -pbkdf2 \
   -in "$TEMP_TAR" \
   -out "$KEY_BACKUP" \
-  -pass pass:"$PASSWORD"
+  -pass env:PASSWORD
+unset PASSWORD PASSWORD_CONFIRM
 
 # Secure cleanup
 rm -f "$TEMP_TAR"

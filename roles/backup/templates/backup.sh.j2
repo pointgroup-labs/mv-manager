@@ -13,7 +13,7 @@ tar -czf "$CONFIG_BACKUP" \
   --exclude='*.log' \
   --exclude='backups' \
   config \
-  .env \
+  environment \
   staking-sdk-cli/config.toml 2>/dev/null || true
 
 if [ -f "$CONFIG_BACKUP" ]; then

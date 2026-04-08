@@ -19,7 +19,7 @@
 - name: Warn if node is still syncing
   debug:
     msg: "WARNING: Node is still syncing. Registration will fail until sync completes."
-  when: sync_status.json.result != false
+  when: sync_status.json is not defined or sync_status.json.result != false
   tags: [validator, check]
 
 # =============================================================================
@@ -207,6 +207,7 @@
     - { src: 'delegate.sh.j2', dest: 'delegate.sh' }
     - { src: 'claim-rewards.sh.j2', dest: 'claim-rewards.sh' }
     - { src: 'compound-rewards.sh.j2', dest: 'compound-rewards.sh' }
+    - { src: 'set-commission.sh.j2', dest: 'set-commission.sh' }
   tags: [validator, scripts]
 
 # =============================================================================

@@ -6,7 +6,8 @@ log_level = "info"
 
 [staking]
 type = "local"
-funded_address_private_key = "{{ vault_funded_wallet_private_key }}"
+funded_address_private_key = "{{ vault_funded_wallet_private_key | default('') }}"
+commission_rate = {{ validator_commission_rate }}
 
 [colors]
 border = "white"
