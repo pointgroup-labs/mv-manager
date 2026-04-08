@@ -11,9 +11,9 @@ case "${1:-consensus}" in
     tail -n "$LINES" -f {{ monad_home }}/execution/log/{{ execution_service_identifier }}.log
     ;;
   rpc)
-    tail -n "$LINES" -f {{ monad_logs_dir }}/monad-rpc.log
+    tail -n "$LINES" -f {{ monad_logs_dir }}/{{ rpc_service_identifier }}.log
     ;;
   all|*)
-    journalctl -u {{ service_identifier }} -u {{ execution_service_identifier }} -u monad-rpc -n "$LINES" -f
+    journalctl -u {{ service_identifier }} -u {{ execution_service_identifier }} -u {{ rpc_service_identifier }} -n "$LINES" -f
     ;;
 esac

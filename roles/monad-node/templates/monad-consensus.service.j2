@@ -23,7 +23,7 @@ ExecStart=/usr/local/bin/monad-node \
     --ledger-path {{ monad_data_dir }} \
     --triedb-path {{ triedb_config.path }} \
     --otel-endpoint "{{ monad[type].otel_endpoint | default('http://127.0.0.1:4317') }}" \
-    --statesync-sq-thread-cpu 8 \
+    --statesync-sq-thread-cpu {{ consensus_statesync_sq_thread_cpu | default(8) }} \
     --record-metrics-interval-seconds 1 \
     --validators-path {{ monad_validators_config_file }} \
     --persisted-peers-path {{ monad_persisted_peers_file }} \

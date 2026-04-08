@@ -5,6 +5,6 @@
 
 - name: Restart monad
   systemd:
-    name: monad-consensus
+    name: "{{ service_identifier }}"
     state: restarted
     enabled: yes

@@ -7,6 +7,6 @@ sudo systemctl restart {{ execution_service_identifier }}
 sleep 3
 sudo systemctl restart {{ service_identifier }}
 sleep 2
-sudo systemctl restart monad-rpc
+sudo systemctl restart {{ rpc_service_identifier }}
 
 echo "Monad services restarted successfully"

@@ -18,9 +18,9 @@
   when: not gpg_key_stat.stat.exists
   tags: [monad, install]
 
-- name: Download Category Labs GPG key
-  get_url:
-    url: https://pkg.category.xyz/category-labs.gpg
+- name: Install Category Labs GPG key
+  copy:
+    src: category-labs.gpg
     dest: /etc/apt/keyrings/category-labs.gpg
     mode: '0644'
   when: not gpg_key_stat.stat.exists
@@ -57,8 +57,14 @@
 # =============================================================================
 - name: Install monad package
   apt:
-    name: monad
+    name: "monad={{ monad_version }}"
     state: present
+  tags: [monad, install]
+
+- name: Hold monad package version
+  dpkg_selections:
+    name: monad
+    selection: hold
   tags: [monad, install]
 
 - name: Disable package-shipped monad-bft service (we manage our own)
@@ -68,6 +74,23 @@
     state: stopped
     masked: yes
   ignore_errors: yes
+  tags: [monad, install]
+
+- name: Check if TrieDB is initialized
+  command: monad-mpt --storage {{ triedb_config.path }}
+  register: triedb_check
+  changed_when: false
+  failed_when: false
+  when: setup_triedb | default(false) | bool
+  tags: [monad, install]
+
+- name: Initialize TrieDB via monad-mpt
+  systemd:
+    name: monad-mpt
+    state: started
+  when:
+    - setup_triedb | default(false) | bool
+    - triedb_check.rc is defined and triedb_check.rc != 0
   tags: [monad, install]
 
 # =============================================================================
@@ -143,6 +166,32 @@
     - "{{ monad_bls_key_file }}"
   tags: [monad, keys]
 
+- name: Export SECP public key
+  shell: |
+    /usr/local/bin/monad-keystore recover \
+      --keystore-path {{ monad_secp_key_file }} \
+      --password "{{ vault_keystore_password }}" \
+      --key-type secp 2>&1 | sed -n 's/.*Secp public key: \(.*\)/\1/p' \
+      > {{ monad_secp_key_file }}.pub
+  args:
+    creates: "{{ monad_secp_key_file }}.pub"
+  become_user: "{{ monad_user }}"
+  no_log: true
+  tags: [monad, keys]
+
+- name: Export BLS public key
+  shell: |
+    /usr/local/bin/monad-keystore recover \
+      --keystore-path {{ monad_bls_key_file }} \
+      --password "{{ vault_keystore_password }}" \
+      --key-type bls 2>&1 | sed -n 's/.*BLS public key: \(.*\)/\1/p' \
+      > {{ monad_bls_key_file }}.pub
+  args:
+    creates: "{{ monad_bls_key_file }}.pub"
+  become_user: "{{ monad_user }}"
+  no_log: true
+  tags: [monad, keys]
+
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
@@ -199,7 +248,7 @@
 - name: Create systemd service for monad
   template:
     src: monad-consensus.service.j2
-    dest: /etc/systemd/system/monad-consensus.service
+    dest: "/etc/systemd/system/{{ service_identifier }}.service"
     mode: '0644'
   register: systemd_service
   notify: Restart monad
@@ -213,7 +262,7 @@
 
 - name: Enable and start monad service
   systemd:
-    name: monad-consensus
+    name: "{{ service_identifier }}"
     state: started
     enabled: yes
   tags: [monad, start]
@@ -274,7 +323,7 @@
 # =============================================================================
 - name: Wait for monad service to start
   systemd:
-    name: monad-consensus
+    name: "{{ service_identifier }}"
   register: monad_service
   until: monad_service.status.ActiveState == "active"
   retries: 6

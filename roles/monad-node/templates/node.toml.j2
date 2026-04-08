@@ -22,14 +22,14 @@ chain_id = {{ monad_chain_id }}
 [peer_discovery]
 self_address = "{{ ansible_host }}:{{ monad_p2p_port }}"
 self_auth_port = {{ monad[type].consensus.ports.auth_udp_port }}
-self_record_seq_num = 1
-self_name_record_sig = "{{ self_name_record_sig }}"
+self_record_seq_num = {{ self_record_seq_num | default(1) }}
+self_name_record_sig = "{{ self_name_record_sig | default('') }}"
 refresh_period = 20
 request_timeout = 5
 unresponsive_prune_threshold = 3
 last_participation_prune_threshold = 1000
-min_num_peers = 90
-max_num_peers = 250
+min_num_peers = {{ min_num_peers | default(90) }}
+max_num_peers = {{ max_num_peers | default(250) }}
 ping_rate_limit_per_second = 100
 
 [fullnode_raptorcast]
@@ -72,34 +72,21 @@ expand_to_group = true
 init_peers = []
 
 #########################################################
-# Bootstrap peers (Testnet)
-# These are official Monad bootstrap nodes
+# Bootstrap peers
 #########################################################
+{% if bootstrap_peers | length > 0 %}
+{% for peer in bootstrap_peers %}
 
-# mf-testnet-bootstrap-fn-lsn-jfk-006
+# {{ peer.name }}
 [[bootstrap.peers]]
-address = "64.31.54.6:8000"
-record_seq_num = 0
-name_record_sig = "3b9d7bb0395a93336a48bb0c2e410c50e777f4d88eb114bf925d580cd55431bc780d43fd75a46154d8105412480b25f350e4ceffea7a17ea42b351ba8374741500"
-secp256k1_pubkey = "02d84a0236ed911c8425dd78951ebbbbdfa7628781274b8db4423c67f65944102e"
+address = "{{ peer.address }}"
+record_seq_num = {{ peer.record_seq_num }}
+secp256k1_pubkey = "{{ peer.secp256k1_pubkey }}"
+name_record_sig = "{{ peer.name_record_sig }}"
+auth_port = {{ peer.auth_port }}
+{% endfor %}
+{% else %}
 
-# mf-testnet-bootstrap-fn-lsn-fra-007
-[[bootstrap.peers]]
-address = "64.31.29.227:8000"
-record_seq_num = 0
-name_record_sig = "c8d537fde7ff3a713c0f5f82841a55910dfd784252f4c92a931e3ae67c4c6bcc08d53a9acd155f4591fd3011ef15da7264520a46809d03c3992c53ddca84208200"
-secp256k1_pubkey = "0319bb3b694487c34ce350254e12462787e15ec9116efc1a905a0a9e4e180235bd"
-
-# CL-1 (EU)
-[[bootstrap.peers]]
-address = "185.189.44.231:8000"
-record_seq_num = 0
-name_record_sig = "e8bbcbc909291463138b3477f082b2a9429735895cf17c9067cbbcbd93dcab0975bd75f0af25260f9f807172e047b95ec9144c660c964c911790b17ada742daf01"
-secp256k1_pubkey = "03816049f25776260594160053555a14bc2b802c3cb04df4e557d107dbfa834541"
-
-# CL-2 (US)
-[[bootstrap.peers]]
-address = "185.150.190.139:8000"
-record_seq_num = 0
-name_record_sig = "2a2d3778daed2429bfa2bfa8378e1da14b90ea21cc6649d51b1a8713c3725bca126ad237a4f2dd0cd1542b70d2712886a098146a45fb8a510453f3f273ff64d301"
-secp256k1_pubkey = "03e72965cd3710d7bdde238fe24d36565b363632edccc22bf16dee2bcf16180475"
+[bootstrap]
+peers = []
+{% endif %}
