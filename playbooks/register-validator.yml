@@ -6,7 +6,7 @@
 
   vars_files:
     - ../group_vars/all.yml
-    - ../group_vars/vault.yml
+    - ../group_vars/vault-{{ env }}.yml
     - ../group_vars/validators.yml
     - ../group_vars/{{ env }}.yml
 

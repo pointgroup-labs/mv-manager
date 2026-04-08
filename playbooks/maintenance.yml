@@ -6,15 +6,32 @@
 
   vars_files:
     - ../group_vars/all.yml
-    - ../group_vars/vault.yml
+    - ../group_vars/vault-{{ env }}.yml
     - ../group_vars/{{ env }}.yml
 
   tasks:
-    - name: Restart
+    - name: Stop services for restart
       systemd:
-        name: "{{ service_identifier }}"
-        state: restarted
-      tags: [restart, never]
+        name: "{{ item }}"
+        state: stopped
+      loop:
+        - "{{ rpc_service_identifier }}"
+        - "{{ service_identifier }}"
+        - "{{ execution_service_identifier }}"
+      ignore_errors: yes
+      tags: [restart, stop, never]
+
+    - name: Start services after restart
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - "{{ execution_service_identifier }}"
+        - "{{ service_identifier }}"
+        - "{{ rpc_service_identifier }}"
+      ignore_errors: yes
+      tags: [restart, start, never]
 
     - name: Backup
       command: "{{ monad_home }}/scripts/backup.sh"
@@ -22,7 +39,7 @@
       tags: [backup, never]
 
     - name: Health check
-      command: "{{ monad_home }}/scripts/health-check.sh"
+      command: "{{ monad_home }}/scripts/check-sync.sh"
       become_user: "{{ monad_user }}"
       register: health
       changed_when: false

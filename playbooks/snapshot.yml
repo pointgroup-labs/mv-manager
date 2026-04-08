@@ -1,22 +1,27 @@
 ---
 - name: Download and apply snapshot
-  hosts: validators
+  hosts: validators:fullnodes
   become: yes
   gather_facts: yes
 
   vars_files:
     - ../group_vars/all.yml
-    - ../group_vars/vault.yml
+    - ../group_vars/vault-{{ env }}.yml
     - ../group_vars/{{ env }}.yml
 
   vars:
     tmp_dir: /tmp/monad-snapshot
 
   tasks:
-    - name: Stop monad service
+    - name: Stop monad services
       systemd:
-        name: "{{ service_identifier }}"
+        name: "{{ item }}"
         state: stopped
+      loop:
+        - "{{ rpc_service_identifier }}"
+        - "{{ service_identifier }}"
+        - "{{ execution_service_identifier }}"
+      ignore_errors: yes
       tags: [snapshot]
 
     - name: Create tmp folder
@@ -124,7 +129,7 @@
         --db {{ triedb_config.path }}
         --load_binary_snapshot {{ tmp_dir }}
         --version {{ block_id }}
-        --sq_thread_cpu 15
+        --sq_thread_cpu {{ snapshot_sq_thread_cpu | default(15) }}
       register: monad_cli_result
       failed_when: monad_cli_result.rc != 0
       tags: [snapshot]
@@ -152,10 +157,15 @@
         state: absent
       tags: [snapshot]
 
-    - name: Start monad service
+    - name: Start monad services
       systemd:
-        name: "{{ service_identifier }}"
+        name: "{{ item }}"
         state: started
+      loop:
+        - "{{ execution_service_identifier }}"
+        - "{{ service_identifier }}"
+        - "{{ rpc_service_identifier }}"
+      ignore_errors: yes
       tags: [snapshot]
 
     - name: Wait for service startup

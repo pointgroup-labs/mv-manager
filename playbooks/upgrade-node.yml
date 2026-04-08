@@ -7,7 +7,7 @@
 
   vars_files:
     - ../group_vars/all.yml
-    - ../group_vars/vault.yml
+    - ../group_vars/vault-{{ env }}.yml
     - ../group_vars/{{ env }}.yml
 
   tasks:
@@ -26,16 +26,27 @@
         name: "{{ item }}"
         state: stopped
       loop:
-        - monad-rpc
+        - "{{ rpc_service_identifier }}"
         - "{{ service_identifier }}"
         - "{{ execution_service_identifier }}"
       ignore_errors: yes
+
+    - name: Unhold monad package
+      dpkg_selections:
+        name: monad
+        selection: install
 
     - name: Upgrade monad package
       apt:
         name: "monad={{ monad_version }}"
         state: present
         update_cache: yes
+        allow_change_held_packages: yes
+
+    - name: Hold monad package version
+      dpkg_selections:
+        name: monad
+        selection: hold
 
     - name: Start services
       systemd:
@@ -45,7 +56,7 @@
       loop:
         - "{{ execution_service_identifier }}"
         - "{{ service_identifier }}"
-        - monad-rpc
+        - "{{ rpc_service_identifier }}"
       ignore_errors: yes
 
     - name: Wait for RPC

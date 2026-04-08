@@ -1,49 +1,72 @@
 ---
 - name: Recovery
-  hosts: validators
+  hosts: validators:fullnodes
   become: yes
   gather_facts: yes
 
   vars_files:
     - ../group_vars/all.yml
-    - ../group_vars/vault.yml
+    - ../group_vars/vault-{{ env }}.yml
     - ../group_vars/{{ env }}.yml
 
   tasks:
     - name: Check service
-      shell: systemctl status {{ service_identifier }} --no-pager
+      shell: systemctl status {{ item }} --no-pager
       register: status
       changed_when: false
       failed_when: false
+      loop:
+        - "{{ service_identifier }}"
+        - "{{ execution_service_identifier }}"
+        - "{{ rpc_service_identifier }}"
       tags: [diagnose]
 
     - name: Show status
       debug:
-        var: status.stdout_lines
+        var: item.stdout_lines
+      loop: "{{ status.results }}"
+      loop_control:
+        label: "{{ item.item }}"
       tags: [diagnose]
 
     - name: Check errors
-      shell: journalctl -u {{ service_identifier }} -n 50 --no-pager | grep -i "error\|fatal" || true
+      shell: journalctl -u {{ item }} -n 50 --no-pager | grep -i "error\|fatal" || true
       register: errors
       changed_when: false
+      loop:
+        - "{{ service_identifier }}"
+        - "{{ execution_service_identifier }}"
       tags: [diagnose]
 
     - name: Show errors
       debug:
-        var: errors.stdout_lines
+        msg: "{{ item.item }}: {{ item.stdout_lines }}"
+      loop: "{{ errors.results }}"
+      loop_control:
+        label: "{{ item.item }}"
       tags: [diagnose]
 
-    - name: Stop service
+    - name: Stop services
       systemd:
-        name: "{{ service_identifier }}"
+        name: "{{ item }}"
         state: stopped
+      loop:
+        - "{{ rpc_service_identifier }}"
+        - "{{ service_identifier }}"
+        - "{{ execution_service_identifier }}"
+      ignore_errors: yes
       tags: [recover]
 
-    - name: Start service
+    - name: Start services
       systemd:
-        name: "{{ service_identifier }}"
+        name: "{{ item }}"
         state: started
         enabled: yes
+      loop:
+        - "{{ execution_service_identifier }}"
+        - "{{ service_identifier }}"
+        - "{{ rpc_service_identifier }}"
+      ignore_errors: yes
       tags: [recover]
 
     - name: Wait
