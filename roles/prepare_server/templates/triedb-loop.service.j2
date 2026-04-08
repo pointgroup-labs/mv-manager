@@ -1,0 +1,14 @@
+[Unit]
+Description=Setup TrieDB loop device
+DefaultDependencies=no
+After=local-fs.target
+Before={{ service_identifier }}.service {{ execution_service_identifier }}.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash -c 'DEV=$(losetup -j {{ triedb_loop_config.image_file }} | cut -d: -f1); [ -z "$DEV" ] && DEV=$(losetup -f --show {{ triedb_loop_config.image_file }}); ln -sf "$DEV" {{ triedb_config.path }}'
+ExecStop=/bin/bash -c 'losetup -d $(losetup -j {{ triedb_loop_config.image_file }} | cut -d: -f1) 2>/dev/null; rm -f {{ triedb_config.path }}'
+
+[Install]
+WantedBy=multi-user.target

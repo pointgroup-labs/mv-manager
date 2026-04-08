@@ -20,9 +20,9 @@
   tags: [packages]
 
 # Hugepages required for monad performance
-- name: Copy hugepages service
-  ansible.builtin.copy:
-    src: set-hugepages.service
+- name: Template hugepages service
+  ansible.builtin.template:
+    src: set-hugepages.service.j2
     dest: /etc/systemd/system/set-hugepages.service
     owner: root
     group: root
@@ -69,23 +69,6 @@
       -A ufw-before-input -p udp --dport {{ monad_p2p_port }} -m length --length 0:1400 -j DROP
   notify: Reload UFW
   tags: [firewall]
-
-- name: Create monad group
-  ansible.builtin.group:
-    name: "{{ monad_group }}"
-    state: present
-  tags: [user]
-
-- name: Create monad user
-  ansible.builtin.user:
-    name: "{{ monad_user }}"
-    group: "{{ monad_group }}"
-    shell: /bin/bash
-    home: "{{ monad_home }}"
-    create_home: yes
-    system: yes
-    state: present
-  tags: [user]
 
 - name: Create directories
   ansible.builtin.file:

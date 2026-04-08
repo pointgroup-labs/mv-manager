@@ -4,25 +4,17 @@
     cmd: "truncate -s {{ triedb_loop_config.image_size }} {{ triedb_loop_config.image_file }}"
     creates: "{{ triedb_loop_config.image_file }}"
 
-- name: Setup loop device
-  ansible.builtin.command:
-    cmd: "losetup -f {{ triedb_loop_config.image_file }}"
-  register: losetup_result
-  changed_when: true
+- name: Install triedb-loop systemd service
+  ansible.builtin.template:
+    src: triedb-loop.service.j2
+    dest: /etc/systemd/system/triedb-loop.service
+    owner: root
+    group: root
+    mode: "0644"
 
-- name: Get loop device
-  ansible.builtin.shell: |
-    losetup -j {{ triedb_loop_config.image_file }} | cut -d: -f1
-  register: loop_device
-  changed_when: false
-
-- name: Set loop device fact
-  ansible.builtin.set_fact:
-    triedb_device: "{{ loop_device.stdout }}"
-
-- name: Create symlink
-  ansible.builtin.file:
-    src: "{{ triedb_device }}"
-    dest: "{{ triedb_config.path }}"
-    state: link
-    force: yes
+- name: Enable and start triedb-loop service
+  ansible.builtin.systemd:
+    name: triedb-loop
+    enabled: yes
+    state: started
+    daemon_reload: yes

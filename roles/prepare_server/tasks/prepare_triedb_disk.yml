@@ -9,6 +9,26 @@
     msg: "Device {{ triedb_config.drive }} not found"
   when: not triedb_device_stat.stat.exists
 
+- name: Check NVMe LBA format
+  ansible.builtin.shell: |
+    set -o pipefail
+    nvme id-ns {{ triedb_config.drive }} -H 2>/dev/null | grep -oP 'LBA Format\s+\K\d+' | head -1
+  args:
+    executable: /bin/bash
+  register: lba_format_result
+  changed_when: false
+  failed_when: false
+
+- name: Warn if NVMe LBA format is not 0
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: {{ triedb_config.drive }} uses LBA Format {{ lba_format_result.stdout }}, not 0.
+      For optimal TrieDB performance, format with: nvme format {{ triedb_config.drive }} --lbaf=0
+      (this DESTROYS all data on the drive)
+  when:
+    - lba_format_result.rc == 0
+    - lba_format_result.stdout | trim != "0"
+
 - name: Create GPT partition
   community.general.parted:
     device: "{{ triedb_config.drive }}"
@@ -41,8 +61,8 @@
     group: root
     mode: "0644"
   notify:
-    - Trigger udev rules
     - Reload udev rules
+    - Trigger udev rules
 
 - name: Apply udev rules
   ansible.builtin.meta: flush_handlers
