@@ -130,41 +130,6 @@
     mode: '0775'
   tags: [observability, exporter]
 
-- name: Check if node_exporter has textfile collector flag
-  ansible.builtin.shell:
-    cmd: grep -q 'collector.textfile' /etc/systemd/system/node_exporter.service
-  register: ne_textfile_check
-  changed_when: false
-  failed_when: false
-  tags: [observability, exporter]
-
-- name: Add textfile collector flag to node_exporter
-  ansible.builtin.replace:
-    path: /etc/systemd/system/node_exporter.service
-    regexp: '(--collector\.processes)$'
-    replace: '\1 \\\n    --collector.textfile.directory=/var/lib/node_exporter/textfile'
-  when: ne_textfile_check.rc != 0
-  notify:
-    - Reload systemd
-    - Restart node_exporter
-  tags: [observability, exporter]
-
-- name: Ensure node_exporter runs with textfile collector
-  ansible.builtin.shell:
-    cmd: cat /proc/$(pgrep -x node_exporter)/cmdline | tr '\0' ' ' | grep -q 'collector.textfile'
-  register: ne_running_check
-  changed_when: false
-  failed_when: false
-  tags: [observability, exporter]
-
-- name: Restart node_exporter if textfile flag missing from running process
-  ansible.builtin.systemd:
-    name: node_exporter
-    state: restarted
-    daemon_reload: true
-  when: ne_running_check.rc != 0
-  tags: [observability, exporter]
-
 - name: Template monad-exporter script
   ansible.builtin.template:
     src: monad-exporter.sh.j2
@@ -219,13 +184,7 @@
   until: grafana_health.status == 200
   tags: [observability, deploy]
 
-- name: Allow Grafana port through firewall
-  community.general.ufw:
-    rule: allow
-    port: "{{ grafana_port | string }}"
-    proto: tcp
-    comment: "Grafana dashboard"
-  tags: [observability, firewall]
+# Grafana binds to 127.0.0.1 — access via SSH tunnel: ssh -L 3000:127.0.0.1:3000 root@<host>
 
 - name: Allow node_exporter access from Docker networks
   community.general.ufw:

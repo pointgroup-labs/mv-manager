@@ -23,7 +23,7 @@ groups:
               to: 0
             model:
               refId: A
-              expr: node_systemd_unit_state{name=~"monad-consensus\\.service|monad-execution\\.service", state="active"}
+              expr: node_systemd_unit_state{name=~"{{ service_identifier }}\\.service|{{ execution_service_identifier }}\\.service", state="active"}
               intervalMs: 1000
               maxDataPoints: 43200
           - refId: B

@@ -294,11 +294,11 @@
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "textMode": "auto"
       },
-      "title": "monad-consensus",
+      "title": "{{ service_identifier }}",
       "type": "stat",
       "targets": [
         {
-          "expr": "node_systemd_unit_state{name=\"monad-consensus.service\", state=\"active\"}",
+          "expr": "node_systemd_unit_state{name=\"{{ service_identifier }}.service\", state=\"active\"}",
           "legendFormat": "consensus",
           "instant": true,
           "range": false
@@ -335,11 +335,11 @@
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "textMode": "auto"
       },
-      "title": "monad-execution",
+      "title": "{{ execution_service_identifier }}",
       "type": "stat",
       "targets": [
         {
-          "expr": "node_systemd_unit_state{name=\"monad-execution.service\", state=\"active\"}",
+          "expr": "node_systemd_unit_state{name=\"{{ execution_service_identifier }}.service\", state=\"active\"}",
           "legendFormat": "execution",
           "instant": true,
           "range": false
@@ -376,11 +376,11 @@
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "textMode": "auto"
       },
-      "title": "monad-rpc",
+      "title": "{{ rpc_service_identifier }}",
       "type": "stat",
       "targets": [
         {
-          "expr": "node_systemd_unit_state{name=\"monad-rpc.service\", state=\"active\"}",
+          "expr": "node_systemd_unit_state{name=\"{{ rpc_service_identifier }}.service\", state=\"active\"}",
           "legendFormat": "rpc",
           "instant": true,
           "range": false
@@ -1107,7 +1107,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "rate(node_disk_written_bytes_total{device=\"md1p1\"}[5m])",
+          "expr": "rate(node_disk_written_bytes_total{device=~\"md.*|nvme.*\"}[5m])",
           "legendFormat": "Write",
           "instant": true,
           "range": false
@@ -1944,12 +1944,12 @@
     }
   ],
   "schemaVersion": 39,
-  "tags": ["monad", "validator"],
+  "tags": ["monad", "{{ type | default('validator') }}"],
   "templating": { "list": [] },
   "time": { "from": "now-6h", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Monad Validator",
-  "uid": "monad-validator",
+  "title": "Monad {{ type | default('validator') | capitalize }}",
+  "uid": "monad-{{ type | default('validator') }}",
   "version": 1
 }

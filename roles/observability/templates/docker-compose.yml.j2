@@ -8,7 +8,7 @@ services:
       - "127.0.0.1:{{ otel_grpc_port }}:4317"
       - "127.0.0.1:{{ otel_http_port }}:4318"
       - "127.0.0.1:{{ otel_prometheus_port }}:8889"
-      - "127.0.0.1:8888:8888"
+      - "127.0.0.1:{{ otel_metrics_port }}:8888"
     mem_limit: 2g
 
   prometheus:
@@ -39,7 +39,7 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - "0.0.0.0:{{ grafana_port }}:3000"
+      - "127.0.0.1:{{ grafana_port }}:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_admin_password }}"
       GF_USERS_ALLOW_SIGN_UP: "false"

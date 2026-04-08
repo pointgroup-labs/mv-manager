@@ -5,7 +5,7 @@ RPC_URL="http://localhost:{{ monad_rpc_port }}"
 CONTRACT="0x0000000000000000000000000000000000001000"
 VALIDATOR_ID="{{ validator_id | default('') }}"
 AUTH_ADDRESS="{{ auth_address | default('') }}"
-LOG_FILE="{{ monad_logs_dir }}/monad-consensus.log"
+LOG_FILE="{{ monad_logs_dir }}/{{ service_identifier }}.log"
 PROM_FILE="/var/lib/node_exporter/textfile/monad.prom"
 TMP_FILE="${PROM_FILE}.$$"
 {% raw %}
