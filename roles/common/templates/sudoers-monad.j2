@@ -9,10 +9,10 @@
 {{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl stop {{ execution_service_identifier }}
 {{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl restart {{ execution_service_identifier }}
 {{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl status {{ execution_service_identifier }}
-{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl start monad-rpc
-{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl stop monad-rpc
-{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl restart monad-rpc
-{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl status monad-rpc
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl start {{ rpc_service_identifier }}
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl stop {{ rpc_service_identifier }}
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl restart {{ rpc_service_identifier }}
+{{ monad_user }} ALL=(ALL) NOPASSWD: /bin/systemctl status {{ rpc_service_identifier }}
 
 # Allow sysctl reload
 {{ monad_user }} ALL=(ALL) NOPASSWD: /sbin/sysctl -p *
