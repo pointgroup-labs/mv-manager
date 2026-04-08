@@ -1,34 +1,41 @@
 #!/bin/bash
 set -euo pipefail
 
-INV="inventory/local.yml"
+INV="${MONAD_INV:-inventory/testnet.yml}"
 HOST_FILTER="${1:-}"
-RPC_PORT=8002
 
 G='\033[32m'; Y='\033[33m'; R='\033[31m'; C='\033[36m'; D='\033[2m'; B='\033[1m'; M='\033[35m'; N='\033[0m'
 
 get_hosts() {
-    local filter='.value.type == "validator"'
+    local filter='true'
     [ -n "$HOST_FILTER" ] && filter="$filter and .key == \"$HOST_FILTER\""
     ansible-inventory -i "$INV" --list 2>/dev/null | \
-        jq -r "._meta.hostvars | to_entries | map(select($filter)) | .[] | \"\(.key)|\(.value.ansible_host)|\(.value.validator_id // \"\")\""
+        jq -r "._meta.hostvars | to_entries | map(select($filter)) | .[] | \"\(.key)|\(.value.ansible_host)|\(.value.validator_id // \"\")|\(.value.type // \"validator\")\""
 }
 
 for entry in $(get_hosts); do
     NAME=$(echo "$entry" | cut -d'|' -f1)
     IP=$(echo "$entry" | cut -d'|' -f2)
     VAL_ID=$(echo "$entry" | cut -d'|' -f3)
+    TYPE=$(echo "$entry" | cut -d'|' -f4)
 
-    ssh -o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no "root@$IP" bash -s "$RPC_PORT" "$VAL_ID" "$NAME" "$IP" << 'REMOTE' 2>/dev/null || echo -e "\n  \033[31m✗ connection failed: $NAME ($IP)\033[0m"
+    ssh -o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no "root@$IP" bash -s "$TYPE" "$VAL_ID" "$NAME" "$IP" << 'REMOTE' 2>/dev/null || echo -e "\n  \033[31m✗ connection failed: $NAME ($IP)\033[0m"
 G='\033[32m'; Y='\033[33m'; R='\033[31m'; C='\033[36m'
 D='\033[2m'; B='\033[1m'; M='\033[35m'; N='\033[0m'
 
-HOME="/home/monad"
-LOG="$HOME/log/monad-consensus.log"
-RPC_PORT="${1:-8002}"
+TYPE="${1:-validator}"
 VAL_ID="${2:-}"
 NODE_NAME="${3:-}"
 NODE_IP="${4:-}"
+HOME="/home/monad"
+LOG="$HOME/log/monad-consensus.log"
+if [ "$TYPE" = "validator" ]; then
+    RPC_PORT=8002
+    EXEC_SVC="monad-execution"
+else
+    RPC_PORT=8090
+    EXEC_SVC="monad-${TYPE}-execution"
+fi
 RPC_URL="http://localhost:${RPC_PORT}"
 
 rpc() {
@@ -92,7 +99,7 @@ echo "╰${border}╯"
 # ── Services ─────────────────────────────────────────────
 
 cons=$(systemctl is-active monad-consensus 2>/dev/null || echo "inactive")
-exec_s=$(systemctl is-active monad-execution 2>/dev/null || echo "inactive")
+exec_s=$(systemctl is-active "$EXEC_SVC" 2>/dev/null || echo "inactive")
 rpc_s=$(systemctl is-active monad-rpc 2>/dev/null || echo "inactive")
 [ "$cons" = "active" ] && cs="${G}●${N}" || cs="${R}●${N}"
 [ "$exec_s" = "active" ] && es="${G}●${N}" || es="${R}●${N}"

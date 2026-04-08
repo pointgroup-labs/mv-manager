@@ -1,8 +1,12 @@
-INV := inventory/local.yml
+ENV ?= testnet
+INV := inventory/$(ENV).yml
+VAULT := group_vars/vault-$(ENV).yml
 CLOG := /home/monad/log/monad-consensus.log
-ELOG := /home/monad/execution/log/monad-execution.log
+ELOG := /home/monad/execution/log/monad-execution.log  # Validator default; fullnodes: monad-fullnode-execution.log
 RLOG := /home/monad/log/monad-rpc.log
 A := -i $(INV) $(if $(NODE),--limit $(NODE),)
+
+$(if $(wildcard $(INV)),,$(error Inventory not found: $(INV) — valid ENVs: testnet, mainnet))
 
 ## Deployment
 deploy: ## Deploy validator
@@ -30,33 +34,36 @@ observability: ## Deploy observability stack (Prometheus + Grafana)
 health: ## Run health checks
 	ansible-playbook $(A) playbooks/maintenance.yml --tags health
 
-status: ## Show validator status [NODE=]
-	@./scripts/validator-info.sh "$(NODE)"
+status: ## Show validator status [ENV=] [NODE=]
+	@MONAD_INV=$(INV) ./scripts/validator-info.sh "$(NODE)"
 
 logs: ## Tail logs [SVC=consensus|execution|rpc] [LINES=50] [NODE=]
 	$(eval SVC := $(or $(SVC),consensus))
 	$(eval L := $(or $(LINES),50))
 	$(eval LOGPATH := $(if $(filter execution,$(SVC)),$(ELOG),$(if $(filter rpc,$(SVC)),$(RLOG),$(CLOG))))
-	@ansible $(A) validators -m shell -a 'tail -$(L) $(LOGPATH)' | ./scripts/colorize-logs.sh
+	@ansible $(A) validators:fullnodes -m shell -a 'tail -$(L) $(LOGPATH)' | ./scripts/colorize-logs.sh
 
 watch: ## Stream logs [SVC=consensus|execution|rpc] [NODE=]
 	$(eval SVC := $(or $(SVC),consensus))
 	$(eval LOGPATH := $(if $(filter execution,$(SVC)),$(ELOG),$(if $(filter rpc,$(SVC)),$(RLOG),$(CLOG))))
-	@IP=$$(ansible-inventory $(A) --list 2>/dev/null | jq -r '[._meta.hostvars | to_entries[] | select(.value.type=="validator")] | .[0].value.ansible_host'); \
+	@IP=$$(ansible-inventory $(A) --list 2>/dev/null | jq -r '[._meta.hostvars | to_entries[]] | .[0].value.ansible_host'); \
 	ssh root@$$IP 'tail -f $(LOGPATH)' 2>/dev/null | ./scripts/colorize-logs.sh
 
 ## Operations
 restart: ## Restart services (execution → consensus → rpc)
-	@ansible $(A) validators -m shell -a 'systemctl restart monad-execution && sleep 3 && systemctl restart monad-consensus && sleep 2 && systemctl restart monad-rpc'
+	ansible-playbook $(A) playbooks/maintenance.yml --tags restart
 
 stop: ## Stop services
-	@ansible $(A) validators -m shell -a 'systemctl stop monad-rpc monad-consensus monad-execution'
+	ansible-playbook $(A) playbooks/maintenance.yml --tags stop
 
 start: ## Start services
-	@ansible $(A) validators -m shell -a 'systemctl start monad-execution && sleep 2 && systemctl start monad-consensus && sleep 2 && systemctl start monad-rpc'
+	ansible-playbook $(A) playbooks/maintenance.yml --tags start
 
 backup: ## Backup keys and config
 	ansible-playbook $(A) playbooks/maintenance.yml --tags backup
+
+commission: ## Set commission rate [RATE=20] [NODE=]
+	@ansible $(A) validators -m shell -a '/home/monad/scripts/set-commission.sh $(or $(RATE),20)'
 
 ## Recovery
 recovery: ## Run recovery playbook
@@ -69,40 +76,46 @@ diagnose: ## Show diagnostic info
 ping: ## Test connectivity
 	@ansible $(A) all -m ping
 
-grafana: ## Show Grafana dashboard URL
-	@IP=$$(ansible-inventory $(A) --list 2>/dev/null | jq -r '[._meta.hostvars | to_entries[] | select(.value.type=="validator")] | .[0].value.ansible_host'); \
-	echo "Grafana: http://$$IP:3000"
+grafana: ## Open Grafana via SSH tunnel [NODE=]
+	@IP=$$(ansible-inventory $(A) --list 2>/dev/null | jq -r '[._meta.hostvars | to_entries[]] | .[0].value.ansible_host'); \
+	echo "Grafana: http://localhost:3000"; \
+	echo "Press Ctrl+C to close"; \
+	ssh -N -L 3000:127.0.0.1:3000 root@$$IP
 
 hardware: ## Show hardware specs (CPU, RAM, storage)
-	@./scripts/hardware-info.sh "$(NODE)"
+	@MONAD_INV=$(INV) ./scripts/hardware-info.sh "$(NODE)"
 
 speedtest: ## Run bandwidth speedtest
-	@./scripts/speedtest.sh "$(NODE)"
+	@MONAD_INV=$(INV) ./scripts/speedtest.sh "$(NODE)"
 
 ssh: ## SSH to first validator
 	@ansible-inventory $(A) --list 2>/dev/null | jq -r '.validators.hosts[0] as $$h | .["_meta"]["hostvars"][$$h]["ansible_host"]' | xargs -I{} ssh root@{}
 
-check: ## Syntax check playbooks
-	@ansible-playbook $(A) playbooks/deploy-validator.yml --syntax-check
-	@ansible-playbook $(A) playbooks/setup-observability.yml --syntax-check
+check: ## Syntax check all playbooks
+	@for pb in playbooks/*.yml; do \
+		printf "  %-40s" "$$pb"; \
+		ansible-playbook $(A) $$pb --syntax-check > /dev/null 2>&1 && echo "✓" || echo "✗"; \
+	done
 
 ## Vault
-vault-edit: ## Edit vault secrets
-	ansible-vault edit group_vars/vault.yml
+vault-edit: ## Edit vault secrets [ENV=]
+	ansible-vault edit $(VAULT)
 
-vault-encrypt: ## Encrypt vault
-	ansible-vault encrypt group_vars/vault.yml
+vault-encrypt: ## Encrypt vault [ENV=]
+	ansible-vault encrypt $(VAULT)
 
-vault-decrypt: ## Decrypt vault
-	ansible-vault decrypt group_vars/vault.yml
+vault-decrypt: ## Decrypt vault [ENV=]
+	ansible-vault decrypt $(VAULT)
 
 ## Help
 help:
-	@echo "Usage: make [target] [NODE=name]"
+	@echo "Usage: make [target] [ENV=testnet|mainnet] [NODE=name]"
+	@echo ""
+	@echo "  ENV defaults to 'testnet', uses inventory/\$$ENV.yml"
 	@echo ""
 	@awk '/^## /{sub(/^## /,""); printf "\n\033[1m%s\033[0m\n", $$0; next} \
 		/^[a-z-]+:.*##/{split($$0,a,":.*## "); printf "  \033[36m%-12s\033[0m %s\n", a[1], a[2]}' $(MAKEFILE_LIST)
 	@echo ""
 
 .DEFAULT_GOAL := help
-.PHONY: deploy snapshot execution rpc register upgrade observability health status logs watch restart stop start backup recovery diagnose ping grafana hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help
+.PHONY: deploy snapshot execution rpc register upgrade observability health status logs watch restart stop start backup commission recovery diagnose ping grafana hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help
