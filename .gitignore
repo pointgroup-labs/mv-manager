@@ -8,6 +8,7 @@ logs/*.log
 *vault_pass*
 *.vault
 group_vars/vault.yml
+group_vars/vault-*.yml
 
 # Sensitive files
 **/secrets/
@@ -38,9 +39,12 @@ Thumbs.db
 # Fact cache
 /tmp/
 
-# Local overrides (use for testing)
+# Inventories contain server IPs
+inventory/*.yml
+!inventory/example.yml
+
+# Local overrides
 *.local.yml
-inventory/local.yml
 
 # Misc
 .claude

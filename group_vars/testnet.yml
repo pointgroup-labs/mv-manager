@@ -5,3 +5,32 @@ monad_network_name: "testnet"
 monad_snapshot_url: "https://d1v5yevi7k4blc.cloudfront.net"
 monad_validators_config_url: "https://bucket.monadinfra.com/validators/testnet/validators.toml"
 monad_forkpoint_config_url: "https://bucket.monadinfra.com/forkpoint/testnet/forkpoint.toml"
+
+bootstrap_peers:
+  - name: "mf-testnet-bootstrap-fn-lsn-jfk-006"
+    address: "64.31.54.6:8000"
+    record_seq_num: 1
+    secp256k1_pubkey: "0x02d84a0236ed911c8425dd78951ebbbbdfa7628781274b8db4423c67f65944102e"
+    name_record_sig: "0x930027c1bf5e254624c330c84c600bb84323f8491aae398de22bf077bd3883761ba56c4564a683ce211bac92c8294fdc460470a0db8172839fc53e3f5247762301"
+    auth_port: 8001
+
+  - name: "mf-testnet-bootstrap-fn-lsn-fra-007"
+    address: "64.31.29.227:8000"
+    record_seq_num: 1
+    secp256k1_pubkey: "0x0319bb3b694487c34ce350254e12462787e15ec9116efc1a905a0a9e4e180235bd"
+    name_record_sig: "0xf2bd1599b438be55e211342072fcd29a4584bfa5e1629b1d9bddb20b2cfe839468266808e66b55151c1680eff7df95d8b7a676028af54aaf1875ffe8a409e75e00"
+    auth_port: 8001
+
+  - name: "CL-1 (EU)"
+    address: "185.189.44.231:8000"
+    record_seq_num: 1
+    secp256k1_pubkey: "0x03816049f25776260594160053555a14bc2b802c3cb04df4e557d107dbfa834541"
+    name_record_sig: "0x27da01f515ffa4f186d396736bec49d310f83550271f0f005c78d48946e2649220696676917e32e3747d89559cb070e47a94613a96c1bc390cb46ab16a2b122200"
+    auth_port: 8001
+
+  - name: "CL-2 (US)"
+    address: "185.150.190.139:8000"
+    record_seq_num: 1
+    secp256k1_pubkey: "0x03e72965cd3710d7bdde238fe24d36565b363632edccc22bf16dee2bcf16180475"
+    name_record_sig: "0xa6fee099bfc8598a11cfafae9256dec8a143fd95fa94114c524ca0a8763af09529bb905d92d7cb88327e756db0eadfb6ebdab51c2b146e688a5d25aa6073d1fe00"
+    auth_port: 8001

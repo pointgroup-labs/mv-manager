@@ -1,0 +1,25 @@
+---
+# Copy to testnet.yml or mainnet.yml and fill in your values
+# cp inventory/example.yml inventory/testnet.yml
+
+all:
+  vars:
+    env: testnet  # or mainnet
+
+  children:
+    monad:
+      children:
+        validators:
+          hosts:
+            my-validator:
+              ansible_host: "1.2.3.4"
+              type: validator
+              setup_triedb: true
+
+        fullnodes:
+          hosts: {}
+          # Example fullnode:
+          #   my-fullnode:
+          #     ansible_host: "5.6.7.8"
+          #     type: fullnode
+          #     setup_triedb: true

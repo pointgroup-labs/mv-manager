@@ -1,7 +1,78 @@
 ---
 # Mainnet-specific configuration
-monad_chain_id: 41454
+monad_chain_id: 143
 monad_network_name: "mainnet"
+monad_version: "0.13.1"
 monad_snapshot_url: "https://d3b0ffqjb9bqrg.cloudfront.net"
 monad_validators_config_url: "https://bucket.monadinfra.com/validators/mainnet/validators.toml"
 monad_forkpoint_config_url: "https://bucket.monadinfra.com/forkpoint/mainnet/forkpoint.toml"
+
+bootstrap_peers:
+  - name: "mf-mainnet-bootstrap-fn-001"
+    address: "64.31.29.190:8000"
+    record_seq_num: 1
+    secp256k1_pubkey: "0x037d1cbb43ffc35b540f5175cf366f5f5b5ee1c578ce493e5f689856da148f1cba"
+    name_record_sig: "0x1d1cdf398a82fd294e1baa4d179b6b0d0f0489207ab1601b26a806b9468859b92f1397cb7b577ba39c27a7c7ffd2ccc8630d5b5c2aa4095d0fb0090d9fda78ee00"
+    auth_port: 8001
+
+  - name: "mf-mainnet-bootstrap-fn-002"
+    address: "64.31.53.173:8000"
+    record_seq_num: 1
+    secp256k1_pubkey: "0x02b74a25df4a04bf3fda28a8460946e1cc097adfe0f3851a67546ca328a052020e"
+    name_record_sig: "0x00e2cbbfd5b9f28ffc8417ed10f02ba2910b07157daae37b19740c66fe7e87535f00418c97534a69caad9b100e2b562a8f119c11debd3eb787433b82378b6d4100"
+    auth_port: 8001
+
+  - name: "mf-mainnet-bootstrap-fn-003"
+    address: "208.115.197.25:8000"
+    record_seq_num: 1
+    secp256k1_pubkey: "0x039bed2d57eb4140967b3a114594f046252fd781dba383d8ebcafac1988b7908f0"
+    name_record_sig: "0x4d22a214e9fdab1e8ba0b684597c3db1e0fd5e369e148f83fea88af24b7dfca75c82293758aba386e69fa3d538a54c2147e7619d931806bf1a073742bb0a3a9300"
+    auth_port: 8001
+
+  - name: "mf-mainnet-bootstrap-fn-004"
+    address: "64.130.52.235:8000"
+    record_seq_num: 1
+    secp256k1_pubkey: "0x02a7dd4717c55010da5b49fde4515dd1932e138c3b34360d34a9e112e5269eefca"
+    name_record_sig: "0xd4edc830f19f1e087989f65e02b306424847b5cd34b85b51834df5556d6018396941fdf86b6a8fb5ba80f9b15d880a3ac93bbcee09e698727284d58ccebb1c1500"
+    auth_port: 8001
+
+  - name: "mf-mainnet-bootstrap-fn-005"
+    address: "64.130.56.50:8000"
+    record_seq_num: 1
+    secp256k1_pubkey: "0x0267695371b9a65a2f3ad8324e15f09be7322c1678e5ae36aca277d4eb85a2c5ed"
+    name_record_sig: "0x7a14e16076ec7013fab5d2e287793eb8a2b0309d5cb636472bf134a7c333368520cec2eaafc6e0a3c7a5f146dc6ac0e3942fd4a4a77af7dc61fc4c097513d23301"
+    auth_port: 8001
+
+  - name: "mf-mainnet-bootstrap-fn-006"
+    address: "64.130.49.148:8000"
+    record_seq_num: 1
+    secp256k1_pubkey: "0x024ed4df9c6b174ec5eaf9b1d937cf9ce69581aacfd0581f54793b3c13db69757d"
+    name_record_sig: "0x4d9bc60e5b82da690946e00fbf42c5414fcd28e0796195f55376ec9b296c9f486c5c54f3ea4be6b10a7a3a9f14d763b75bcb36bd992393b2974b3a16576bb05f00"
+    auth_port: 8001
+
+  - name: "mf-mainnet-bootstrap-fn-007"
+    address: "69.162.93.53:8000"
+    record_seq_num: 1
+    secp256k1_pubkey: "0x03f9e716c905b1d18ef97ada135799bd885b8c4bf24b01acc9964564cdee898527"
+    name_record_sig: "0x6fa31238fd234196338693890c73f91bc893b009cf4c84f40c05d24c62a4c1e2617ef5b6b90c897b356c7d2207a58dc2b1fb2f1d8b787b2f4b4154fe606ef0bd00"
+    auth_port: 8001
+
+  - name: "mf-mainnet-bootstrap-fn-008"
+    address: "185.189.46.19:8000"
+    record_seq_num: 1
+    secp256k1_pubkey: "0x032760f4b5ce58fd6d4c952a1bfcd44bf315a2a178614700ed9e95cd42bbdb1bf6"
+    name_record_sig: "0x28198a163a8f6e89bb0b709bfef91f4e4d4d0de86e0c3bd069ea6cb4098b45bd099d3654a135b982906ed8897ed3778f14febf3ec88deee1f30d777fb8f2cba801"
+    auth_port: 8001
+
+execution_nthreads: 8
+execution_nfibers: 512
+execution_sq_thread_cpu: 31
+min_num_peers: 150
+max_num_peers: 600
+
+setup_triedb: true
+triedb_config:
+  drive: "/dev/nvme1n1"
+  path: "/dev/triedb"
+  partition_name: "triedb"
+  partition_number: 1

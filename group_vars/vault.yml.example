@@ -1,6 +1,6 @@
 ---
-# Copy to vault.yml and fill in your values
-# Then encrypt: ansible-vault encrypt group_vars/vault.yml
+# Per-network vault: copy to vault-testnet.yml or vault-mainnet.yml
+# Then encrypt: ansible-vault encrypt group_vars/vault-<env>.yml
 
 # IKM (Initial Key Material) - used to regenerate keystores
 vault_secp_ikm: "64_hex_chars"

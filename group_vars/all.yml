@@ -1,12 +1,12 @@
 ---
 # Monad Validator Configuration
 
-env: testnet
 project: monad
 
 # Service identity
 service_identifier: "monad-consensus"
 execution_service_identifier: "monad{{ '' if type == 'validator' else '-' + type }}-execution"
+rpc_service_identifier: "monad-rpc"
 monad_user: "monad"
 monad_group: "monad"
 monad_home: "/home/monad"
@@ -56,22 +56,15 @@ monad_control_panel_socket: "{{ monad_socket_dir }}/controlpanel.sock"
 monad_statesync_socket: "{{ monad_socket_dir }}/statesync.sock"
 
 # Monad release and network
-monad_version: "0.13.0"
+monad_version: "0.14.0"
 monad_bft_repo: "https://github.com/monad-developers/monad-bft.git"
 monad_bft_version: "main"
 monad_source_url: "https://pkg.category.xyz"
-monad_snapshot_url: "https://d1v5yevi7k4blc.cloudfront.net"
-monad_validators_config_url: "https://bucket.monadinfra.com/validators/{{ env }}/validators.toml"
-monad_forkpoint_config_url: "https://bucket.monadinfra.com/forkpoint/{{ env }}/forkpoint.toml"
 
 # Staking CLI for validator registration
 staking_cli_repo: "https://github.com/monad-developers/staking-sdk-cli.git"
 staking_cli_version: "main"
 staking_cli_dir: "{{ monad_home }}/staking-sdk-cli"
-
-# Testnet chain ID: 10143
-monad_chain_id: 10143
-monad_network_name: "testnet"
 
 monad:
   validator:
@@ -87,6 +80,7 @@ monad:
     consensus:
       ports:
         p2p_port: 8010
+        auth_udp_port: 8011
     rpc:
       ports:
         rpc_port: 8090
@@ -95,23 +89,21 @@ monad:
 monad_rpc_port: "{{ monad[type | default('validator')].rpc.ports.rpc_port }}"
 monad_p2p_port: "{{ monad[type | default('validator')].consensus.ports.p2p_port }}"
 
-# TrieDB: requires dedicated NVMe, min 2TB recommended
-setup_triedb: false
+# TrieDB: every node needs triedb_config.path for service templates
+# Set setup_triedb: true in inventory to partition a dedicated NVMe (min 2TB)
 triedb_config:
   drive: "/dev/nvme0n1"
   path: "/dev/triedb"
   partition_name: "triedb"
   partition_number: 1
 
-# Loop device alternative for testing (not for production)
-setup_triedb_loop: false
-triedb_loop_config:
-  image_file: "/monad-triedb.img"
-  image_size: "1T"
+# Loop device: configured per-host in inventory (setup_triedb_loop: true + triedb_loop_config dict)
 
 # Kernel tuning for high-performance networking
+hugepages_count: 2048
+
 sysctl_params:
-  vm.nr_hugepages: 2048
+  vm.nr_hugepages: "{{ hugepages_count }}"
   net.core.rmem_max: 62500000
   net.core.rmem_default: 62500000
   net.core.wmem_max: 62500000
@@ -134,12 +126,18 @@ required_packages:
   - git
   - vim
   - htop
+  - iotop
+  - iftop
+  - tmux
   - jq
   - unzip
   - build-essential
   - python3
   - python3-pip
   - python3-venv
+  - ca-certificates
+  - gnupg
+  - lsb-release
   - ufw
   - fail2ban
   - logrotate
@@ -168,6 +166,7 @@ ubuntu_2404_packages:
 # Validator staking: min 100k MON self-stake, 10M total to activate
 min_self_stake: 100000
 validator_stake_amount: 100000
+validator_commission_rate: 20
 
 monitoring_enabled: true
 prometheus_port: 9100
@@ -185,7 +184,6 @@ ssh_permit_root_login: "prohibit-password"
 ssh_password_authentication: "no"
 
 firewall_allowed_tcp_ports:
-  - "{{ ssh_port }}"
   - "{{ monad_p2p_port }}"
 
 firewall_allowed_udp_ports:
@@ -200,3 +198,6 @@ fail2ban_bantime: 3600
 systemd_memory_max: "64G"
 systemd_limit_nofile: 1048576
 systemd_restart_sec: 4
+
+consensus_statesync_sq_thread_cpu: 8
+snapshot_sq_thread_cpu: 15
