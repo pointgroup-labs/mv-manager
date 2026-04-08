@@ -2,9 +2,7 @@
 is_validator: true
 validator_stake_amount: 100000
 
-secp_private_key: "{{ vault_secp_private_key }}"
-bls_private_key: "{{ vault_bls_private_key }}"
-beneficiary_address: "{{ vault_beneficiary_address }}"
-auth_address: "{{ vault_auth_address }}"
-
-node_type: "validator"
+secp_private_key: "{{ vault_secp_private_key | default('') }}"
+bls_private_key: "{{ vault_bls_private_key | default('') }}"
+beneficiary_address: "{{ vault_beneficiary_address | default('') }}"
+auth_address: "{{ vault_auth_address | default('') }}"

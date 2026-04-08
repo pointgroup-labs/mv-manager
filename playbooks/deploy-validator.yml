@@ -1,12 +1,12 @@
 ---
-- name: Deploy Monad Validator
-  hosts: validators
+- name: Deploy Monad Node
+  hosts: validators:fullnodes
   become: yes
   gather_facts: yes
 
   vars_files:
     - ../group_vars/all.yml
-    - ../group_vars/vault.yml
+    - ../group_vars/vault-{{ env }}.yml
     - ../group_vars/{{ env }}.yml
 
   pre_tasks:
@@ -28,7 +28,7 @@
 
     - role: validator
       tags: [validator]
-      when: is_validator | default(true)
+      when: is_validator | default(false)
 
     - role: monitoring
       tags: [monitoring]
