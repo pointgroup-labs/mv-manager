@@ -1,0 +1,205 @@
+---
+# Fast migrate a validator to a pre-deployed server.
+#
+# Preparation (do this first, can be hours/days before):
+#   make deploy NODE=my-validator-new
+#   make snapshot NODE=my-validator-new
+#   # Wait for sync: make status NODE=my-validator-new
+#
+# Fast cutover:
+#   make migrate OLD=my-validator NEW=my-validator-new
+#   ansible-playbook -i inventory/testnet.yml playbooks/migrate-validator.yml \
+#     -e old_node=my-validator -e new_node=my-validator-new
+#
+# Prerequisites:
+#   - Both old and new hosts in inventory
+#   - New node already deployed and synced
+#   - Vault decrypted or password available
+
+# =============================================================================
+# PLAY 1: Stop old node and fetch keys
+# =============================================================================
+- name: "Migration — Stop old node and fetch keys"
+  hosts: "{{ old_node | default('localhost') }}"
+  become: yes
+  gather_facts: no
+
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault-{{ env }}.yml
+    - ../group_vars/{{ env }}.yml
+
+  tasks:
+    - name: Validate extra vars
+      fail:
+        msg: "Required: -e old_node=<name> -e new_node=<name>"
+      when: old_node is not defined or new_node is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Stop services on old node
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+      loop:
+        - "{{ rpc_service_identifier }}"
+        - "{{ service_identifier }}"
+        - "{{ execution_service_identifier }}"
+      ignore_errors: yes
+
+    - name: Create temp directory on controller
+      file:
+        path: /tmp/monad-migration
+        state: directory
+        mode: '0700'
+      delegate_to: localhost
+
+    - name: Fetch key files from old node
+      fetch:
+        src: "{{ monad_key_dir }}/{{ item }}"
+        dest: /tmp/monad-migration/
+        flat: yes
+      loop:
+        - id-secp
+        - id-bls
+        - id-secp.pub
+        - id-bls.pub
+
+    - name: Fetch staking CLI config
+      fetch:
+        src: "{{ monad_home }}/staking-sdk-cli/config.toml"
+        dest: /tmp/monad-migration/staking-config.toml
+        flat: yes
+      ignore_errors: yes
+
+    - name: Old node stopped
+      debug:
+        msg: "Services stopped on {{ old_node }} ({{ ansible_host }}). Keys fetched to controller."
+
+# =============================================================================
+# PLAY 2: Swap keys and restart new node
+# =============================================================================
+- name: "Migration — Swap keys on new node"
+  hosts: "{{ new_node | default('localhost') }}"
+  become: yes
+  gather_facts: yes
+
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault-{{ env }}.yml
+    - ../group_vars/{{ env }}.yml
+
+  tasks:
+    - name: Stop services on new node
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+      loop:
+        - "{{ rpc_service_identifier }}"
+        - "{{ service_identifier }}"
+        - "{{ execution_service_identifier }}"
+      ignore_errors: yes
+
+    - name: Restore key files from controller
+      copy:
+        src: "/tmp/monad-migration/{{ item }}"
+        dest: "{{ monad_key_dir }}/{{ item }}"
+        owner: "{{ monad_user }}"
+        group: "{{ monad_group }}"
+        mode: '0600'
+      loop:
+        - id-secp
+        - id-bls
+
+    - name: Restore public key files
+      copy:
+        src: "/tmp/monad-migration/{{ item }}"
+        dest: "{{ monad_key_dir }}/{{ item }}"
+        owner: "{{ monad_user }}"
+        group: "{{ monad_group }}"
+        mode: '0644'
+      loop:
+        - id-secp.pub
+        - id-bls.pub
+
+    - name: Restore staking CLI config
+      copy:
+        src: /tmp/monad-migration/staking-config.toml
+        dest: "{{ monad_home }}/staking-sdk-cli/config.toml"
+        owner: "{{ monad_user }}"
+        group: "{{ monad_group }}"
+        mode: '0600'
+      ignore_errors: yes
+
+    - name: Regenerate node.toml with new IP
+      template:
+        src: "../roles/monad-node/templates/node.toml.j2"
+        dest: "{{ monad_node_config_file }}"
+        owner: "{{ monad_user }}"
+        group: "{{ monad_group }}"
+        mode: '0600'
+
+    - name: Regenerate environment files with new IP
+      template:
+        src: "../roles/monad-node/templates/{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: "{{ monad_user }}"
+        group: "{{ monad_group }}"
+        mode: '0600'
+      loop:
+        - { src: 'monad.env.j2', dest: '{{ monad_general_env_file }}' }
+        - { src: 'secrets.env.j2', dest: '{{ monad_secrets_env_file }}' }
+      no_log: true
+
+    - name: Start services
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - "{{ execution_service_identifier }}"
+        - "{{ service_identifier }}"
+        - "{{ rpc_service_identifier }}"
+      ignore_errors: yes
+
+    - name: Wait for startup
+      pause:
+        seconds: 30
+
+    - name: Verify consensus service
+      systemd:
+        name: "{{ service_identifier }}"
+      register: svc
+      failed_when: svc.status.ActiveState != "active"
+
+    - name: Check RPC
+      uri:
+        url: "http://localhost:{{ monad_rpc_port }}"
+        method: POST
+        body: '{"jsonrpc":"2.0","method":"eth_chainId","id":1}'
+        body_format: json
+        headers:
+          Content-Type: "application/json"
+        status_code: [200, 502, 503]
+      register: rpc
+      retries: 10
+      delay: 10
+      until: rpc.status == 200
+
+    - name: Cleanup controller temp files
+      file:
+        path: /tmp/monad-migration
+        state: absent
+      delegate_to: localhost
+
+    - name: Migration complete
+      debug:
+        msg: |
+          Migration complete!
+          Old node ({{ old_node }}): services STOPPED
+          New node ({{ new_node }}): {{ svc.status.ActiveState }}
+          RPC: http://{{ ansible_host }}:{{ monad_rpc_port }}
+
+          Next steps:
+          1. Verify sync: make status NODE={{ new_node }}
+          2. Once synced, remove old node from inventory
