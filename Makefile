@@ -1,9 +1,10 @@
 ENV ?= testnet
 INV := inventory/$(ENV).yml
 VAULT := group_vars/vault-$(ENV).yml
-CLOG := /home/monad/log/monad-consensus.log
-ELOG := /home/monad/execution/log/monad-execution.log  # Validator default; fullnodes: monad-fullnode-execution.log
-RLOG := /home/monad/log/monad-rpc.log
+H := /home/monad
+CLOG := $(H)/log/monad-consensus.log
+ELOG := $(H)/execution/log/monad-execution.log  # Validator default; fullnodes: monad-fullnode-execution.log
+RLOG := $(H)/log/monad-rpc.log
 A := -i $(INV) $(if $(NODE),--limit $(NODE),)
 
 $(if $(wildcard $(INV)),,$(error Inventory not found: $(INV) — valid ENVs: testnet, mainnet))
@@ -60,13 +61,13 @@ start: ## Start services
 	ansible-playbook $(A) playbooks/maintenance.yml --tags start
 
 commission: ## Set commission rate [RATE=20] [NODE=]
-	@ansible $(A) validators --become-user monad -m shell -a '/home/monad/scripts/set-commission.sh $(or $(RATE),20)'
+	@ansible $(A) validators --become-user monad -m shell -a '$(H)/scripts/set-commission.sh $(or $(RATE),20)'
 
 claim: ## Claim validator rewards [NODE=]
-	@ansible $(A) validators --become-user monad -m shell -a '/home/monad/scripts/claim-rewards.sh'
+	@ansible $(A) validators --become-user monad -m shell -a '$(H)/scripts/claim-rewards.sh'
 
 compound: ## Compound rewards (claim + restake) [NODE=]
-	@ansible $(A) validators --become-user monad -m shell -a '/home/monad/scripts/compound-rewards.sh'
+	@ansible $(A) validators --become-user monad -m shell -a '$(H)/scripts/compound-rewards.sh'
 
 auto-compound: ## Enable auto-compound timer [SCHEDULE="0 8 * * *"] [NODE=]
 	ansible-playbook $(A) playbooks/maintenance.yml --tags auto-compound \
@@ -79,9 +80,9 @@ backup-config: ## Backup config on remote server [NODE=]
 
 backup-keys: ## Download validator keystores to secrets/ [NODE=]
 	@ansible $(A) validators --become-user monad -m fetch \
-		-a 'src=/home/monad/key/id-secp dest=secrets/{{ inventory_hostname }}-id-secp flat=yes'
+		-a 'src=$(H)/key/id-secp dest=secrets/{{ inventory_hostname }}-id-secp flat=yes'
 	@ansible $(A) validators --become-user monad -m fetch \
-		-a 'src=/home/monad/key/id-bls dest=secrets/{{ inventory_hostname }}-id-bls flat=yes'
+		-a 'src=$(H)/key/id-bls dest=secrets/{{ inventory_hostname }}-id-bls flat=yes'
 	@echo "" && echo "Keys saved to secrets/"
 
 ## Migration
