@@ -10,6 +10,7 @@ cd {{ monad_home }}/staking-sdk-cli
 echo "Compounding rewards..."
 
 python staking-cli/main.py compound-rewards \
+  --validator-id {{ validator_id }} \
   --config-path config.toml
 
 echo "Rewards compounded!"

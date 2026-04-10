@@ -53,6 +53,7 @@
         state: directory
         mode: '0700'
       delegate_to: localhost
+      become: no
 
     - name: Fetch key files from old node
       fetch:
@@ -131,6 +132,22 @@
         mode: '0600'
       ignore_errors: yes
 
+    - name: Generate name record signature
+      shell: |
+        /usr/local/bin/monad-sign-name-record \
+          --address {{ ansible_host }}:{{ monad_p2p_port }} \
+          --authenticated-udp-port {{ monad[type].consensus.ports.auth_udp_port }} \
+          --self-record-seq-num {{ self_record_seq_num | default(1) }} \
+          --keystore-path {{ monad_secp_key_file }} \
+          --password "{{ vault_keystore_password }}" 2>&1 | grep self_name_record_sig | cut -d'"' -f2
+      register: name_record_sig_result
+      changed_when: false
+      no_log: true
+
+    - name: Set name record signature fact
+      set_fact:
+        self_name_record_sig: "{{ name_record_sig_result.stdout }}"
+
     - name: Regenerate node.toml with new IP
       template:
         src: "../roles/monad-node/templates/node.toml.j2"
@@ -150,6 +167,19 @@
         - { src: 'monad.env.j2', dest: '{{ monad_general_env_file }}' }
         - { src: 'secrets.env.j2', dest: '{{ monad_secrets_env_file }}' }
       no_log: true
+
+    - name: Assemble dotenv for systemd services
+      ansible.builtin.assemble:
+        src: "{{ monad_env_dir }}"
+        dest: "{{ monad_home }}/.env"
+        owner: "{{ monad_user }}"
+        group: "{{ monad_group }}"
+        mode: '0600'
+      no_log: true
+
+    - name: Clear WAL to prevent high-qc-ahead panic after key swap
+      shell: rm -rf {{ monad_wal_dir }}/* {{ monad_home }}/wal_*
+      changed_when: true
 
     - name: Start services
       systemd:
@@ -191,6 +221,7 @@
         path: /tmp/monad-migration
         state: absent
       delegate_to: localhost
+      become: no
 
     - name: Migration complete
       debug:

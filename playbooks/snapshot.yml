@@ -104,13 +104,13 @@
         - "{{ monad_wal_dir }}"
       tags: [snapshot]
 
-    - name: Truncate triedb with monad-mpt
-      command: monad-mpt --storage {{ triedb_config.path }} --truncate --yes
+    - name: Reset triedb (create if needed, truncate if exists)
+      command: monad-mpt --storage {{ triedb_config.path }} --create-empty --yes
       register: truncate_result
       failed_when: truncate_result.rc != 0
       tags: [snapshot]
 
-    - name: Display truncate status
+    - name: Display triedb status
       debug:
         var: truncate_result.stdout
       tags: [snapshot]

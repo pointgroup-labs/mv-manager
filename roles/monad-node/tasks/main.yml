@@ -200,7 +200,7 @@
     /usr/local/bin/monad-sign-name-record \
       --address {{ ansible_host }}:{{ monad_p2p_port }} \
       --authenticated-udp-port {{ monad[type].consensus.ports.auth_udp_port }} \
-      --self-record-seq-num 1 \
+      --self-record-seq-num {{ self_record_seq_num | default(1) }} \
       --keystore-path {{ monad_secp_key_file }} \
       --password "{{ vault_keystore_password }}" 2>&1 | grep self_name_record_sig | cut -d'"' -f2
   register: name_record_sig_result
@@ -226,6 +226,16 @@
   template:
     src: secrets.env.j2
     dest: "{{ monad_secrets_env_file }}"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0600'
+  no_log: true
+  tags: [monad, config]
+
+- name: Assemble dotenv for systemd services
+  ansible.builtin.assemble:
+    src: "{{ monad_env_dir }}"
+    dest: "{{ monad_home }}/.env"
     owner: "{{ monad_user }}"
     group: "{{ monad_group }}"
     mode: '0600'
@@ -287,19 +297,6 @@
     owner: "{{ monad_user }}"
     group: "{{ monad_group }}"
     force: yes
-  tags: [monad, config]
-
-- name: Configure monad-cruft retention
-  copy:
-    dest: "{{ monad_home }}/.env"
-    owner: "{{ monad_user }}"
-    group: "{{ monad_group }}"
-    mode: '0644'
-    content: |
-      RETENTION_LEDGER=600
-      RETENTION_WAL=300
-      RETENTION_FORKPOINT=300
-      RETENTION_VALIDATORS=43200
   tags: [monad, config]
 
 # =============================================================================
