@@ -1,0 +1,10 @@
+[Unit]
+Description=Compound monad validator rewards (claim + restake)
+
+[Service]
+Type=oneshot
+User={{ monad_user }}
+Group={{ monad_group }}
+ExecStart={{ monad_home }}/scripts/compound-rewards.sh
+StandardOutput=journal
+StandardError=journal

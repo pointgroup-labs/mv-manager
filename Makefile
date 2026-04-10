@@ -71,6 +71,11 @@ claim: ## Claim validator rewards [NODE=]
 compound: ## Compound rewards (claim + restake) [NODE=]
 	@ansible $(A) validators --become-user monad -m shell -a '/home/monad/scripts/compound-rewards.sh'
 
+auto-compound: ## Enable auto-compound timer [SCHEDULE="0 8 * * *"] [NODE=]
+	ansible-playbook $(A) playbooks/maintenance.yml --tags auto-compound \
+		$(if $(SCHEDULE),-e compound_rewards_schedule="$(SCHEDULE)",) \
+		-e compound_rewards_enabled=true
+
 ## Migration
 migrate: ## Fast migrate validator [OLD=name] [NEW=name] (pre-deploy new node first)
 	ansible-playbook $(A) playbooks/migrate-validator.yml -e old_node=$(OLD) -e new_node=$(NEW)
@@ -128,4 +133,4 @@ help:
 	@echo ""
 
 .DEFAULT_GOAL := help
-.PHONY: deploy snapshot execution rpc register upgrade observability health status logs watch restart stop start backup commission claim compound migrate recovery diagnose ping grafana hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help
+.PHONY: deploy snapshot execution rpc register upgrade observability health status logs watch restart stop start backup commission claim compound auto-compound migrate recovery diagnose ping grafana hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help

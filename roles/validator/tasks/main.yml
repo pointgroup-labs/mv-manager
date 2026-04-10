@@ -211,6 +211,41 @@
   tags: [validator, scripts]
 
 # =============================================================================
+# AUTO-COMPOUND TIMER
+# =============================================================================
+- name: Template compound-rewards systemd service
+  template:
+    src: compound-rewards.service.j2
+    dest: /etc/systemd/system/compound-rewards.service
+    mode: '0644'
+  tags: [validator, auto-compound]
+
+- name: Template compound-rewards systemd timer
+  template:
+    src: compound-rewards.timer.j2
+    dest: /etc/systemd/system/compound-rewards.timer
+    mode: '0644'
+  tags: [validator, auto-compound]
+
+- name: Enable and start compound-rewards timer
+  systemd:
+    name: compound-rewards.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: compound_rewards_enabled | default(false) | bool
+  tags: [validator, auto-compound]
+
+- name: Disable compound-rewards timer when not enabled
+  systemd:
+    name: compound-rewards.timer
+    enabled: false
+    state: stopped
+  when: not (compound_rewards_enabled | default(false) | bool)
+  failed_when: false
+  tags: [validator, auto-compound]
+
+# =============================================================================
 # VALIDATOR REGISTRATION
 # =============================================================================
 - name: Verify sync before registration

@@ -91,3 +91,48 @@
       command: "{{ monad_home }}/scripts/cleanup-backups.sh"
       become_user: "{{ monad_user }}"
       tags: [cleanup, never]
+
+- name: Auto-compound rewards timer
+  hosts: validators
+  become: yes
+  gather_facts: no
+
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault-{{ env }}.yml
+    - ../group_vars/{{ env }}.yml
+
+  tasks:
+    - name: Template compound-rewards service
+      template:
+        src: "../roles/validator/templates/compound-rewards.service.j2"
+        dest: /etc/systemd/system/compound-rewards.service
+        mode: '0644'
+      tags: [auto-compound]
+
+    - name: Template compound-rewards timer
+      template:
+        src: "../roles/validator/templates/compound-rewards.timer.j2"
+        dest: /etc/systemd/system/compound-rewards.timer
+        mode: '0644'
+      tags: [auto-compound]
+
+    - name: Manage compound-rewards timer
+      systemd:
+        name: compound-rewards.timer
+        enabled: "{{ compound_rewards_enabled | default(false) | bool }}"
+        state: "{{ 'started' if (compound_rewards_enabled | default(false) | bool) else 'stopped' }}"
+        daemon_reload: true
+      tags: [auto-compound]
+
+    - name: Show timer status
+      shell: systemctl list-timers compound-rewards.timer --no-pager
+      register: timer_status
+      changed_when: false
+      failed_when: false
+      tags: [auto-compound]
+
+    - name: Display status
+      debug:
+        msg: "{{ timer_status.stdout_lines | default(['Timer not found']) }}"
+      tags: [auto-compound]

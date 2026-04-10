@@ -178,6 +178,9 @@ backup_retention_days: 7
 backup_schedule: "0 2 * * *"
 backup_destination: "{{ monad_home }}/backups"
 
+compound_rewards_enabled: false
+compound_rewards_schedule: "0 8 * * *"
+
 # Security
 ssh_port: 22
 ssh_permit_root_login: "prohibit-password"

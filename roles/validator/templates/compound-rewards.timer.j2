@@ -1,0 +1,10 @@
+[Unit]
+Description=Auto-compound monad rewards on schedule
+
+[Timer]
+OnCalendar={{ compound_rewards_schedule }}
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
