@@ -185,7 +185,24 @@ if [ -f "$LOG" ]; then
         # Epoch & round
         epoch=$(echo "$log_tail" | grep -oP '"epoch":"?\K\d+' | tail -1) || epoch=""
         round=$(echo "$log_tail" | grep -oP '"round":"?\K\d+' | tail -1) || round=""
-        [ -n "$epoch" ] && printf "  ${D}Epoch${N}    %s\n" "$epoch"
+
+        # Epoch remaining: 50,000 blocks/epoch × 0.4s/block ≈ 5.55h
+        epoch_remaining=""
+        if [ -n "$epoch" ] && [ -n "$block" ] && [ "$block" -gt 0 ]; then
+            blocks_per_epoch=50000
+            blocks_into=$((block % blocks_per_epoch))
+            blocks_left=$((blocks_per_epoch - blocks_into))
+            secs_left=$((blocks_left * 2 / 5))
+            [ "$secs_left" -gt 0 ] && epoch_remaining="$(human_uptime "$secs_left")"
+        fi
+
+        if [ -n "$epoch" ]; then
+            if [ -n "$epoch_remaining" ]; then
+                printf "  ${D}Epoch${N}    %s  ${D}(%s remaining)${N}\n" "$epoch" "$epoch_remaining"
+            else
+                printf "  ${D}Epoch${N}    %s\n" "$epoch"
+            fi
+        fi
         [ -n "$round" ] && printf "  ${D}Round${N}    %s\n" "$(format_number "$round")"
 
         # Skipped rounds: measured from recent log window
@@ -269,20 +286,85 @@ if [ -n "$VAL_ID" ]; then
     printf "  ${D}Validator${N}  ${C}${B}#${VAL_ID}${N}\n"
 
     if [ -n "$staking_output" ]; then
-        stake=$(echo "$staking_output" | grep "Execution View: Stake" | sed 's/.*│ *\(.*\) *│.*/\1/' | xargs)
-        if [ -n "$stake" ] && [ "$stake" != "0 wei" ]; then
-            printf "  ${D}Stake${N}      ${G}${B}%s MON${N}\n" "$(format_mon "$stake")"
+        total_stake=$(echo "$staking_output" | grep "Execution View: Stake" | sed 's/.*│ *\(.*\) *│.*/\1/' | xargs)
+        pool_rewards=$(echo "$staking_output" | grep "Unclaimed Rewards" | sed 's/.*│ *\(.*\) *│.*/\1/' | xargs)
+        commission_rate=$(echo "$staking_output" | grep "Execution View: Commission" | sed 's/.*│ *\(.*\) *│.*/\1/' | xargs)
+        auth_addr=$(echo "$staking_output" | grep "AuthAddress" | sed 's/.*│ *\(.*\) *│.*/\1/' | xargs)
+
+        delegator_output=""
+        if [ -n "$auth_addr" ]; then
+            delegator_output=$(source "$HOME/staking-sdk-cli/cli-venv/bin/activate" && \
+                cd "$HOME/staking-sdk-cli" && \
+                python staking-cli/main.py query delegator --validator-id "$VAL_ID" \
+                --delegator-address "$auth_addr" --config-path config.toml 2>/dev/null) || delegator_output=""
+        fi
+
+        delegators_output=$(source "$HOME/staking-sdk-cli/cli-venv/bin/activate" && \
+            cd "$HOME/staking-sdk-cli" && \
+            python staking-cli/main.py query delegators --validator-id "$VAL_ID" --config-path config.toml 2>/dev/null) || delegators_output=""
+
+        total_stake_wei=$(echo "$total_stake" | grep -oP '^\d+')
+        if [ -n "$total_stake" ] && [ "$total_stake" != "0 wei" ]; then
+            printf "  ${D}Stake${N}      ${G}${B}%s MON${N}\n" "$(format_mon "$total_stake")"
         else
             printf "  ${D}Stake${N}      ${R}none${N}\n"
         fi
-        rewards=$(echo "$staking_output" | grep "Unclaimed Rewards" | sed 's/.*│ *\(.*\) *│.*/\1/' | xargs)
-        if [ -n "$rewards" ] && [ "$rewards" != "0 wei" ]; then
-            printf "  ${D}Rewards${N}    ${Y}${B}%s MON${N}\n" "$(format_mon "$rewards")"
-        else
-            printf "  ${D}Rewards${N}    0 MON\n"
+
+        if [ -n "$delegator_output" ]; then
+            my_stake_wei=$(echo "$delegator_output" | grep "^│ Stake" | sed 's/.*│ *\(.*\) *│.*/\1/' | grep -oP '^\d+')
+            if [ -n "$my_stake_wei" ] && [ "$my_stake_wei" != "0" ] && [ -n "$total_stake_wei" ] && [ "$total_stake_wei" != "0" ]; then
+                ratio=$(awk "BEGIN { printf \"%.2f\", ${my_stake_wei} * 100 / ${total_stake_wei} }")
+                printf "  ${D}Self-stake${N} %s MON ${D}(%s%%)${N}\n" "$(format_mon "$my_stake_wei wei")" "$ratio"
+            fi
         fi
-        commission=$(echo "$staking_output" | grep "Execution View: Commission" | sed 's/.*│ *\(.*\) *│.*/\1/' | xargs)
-        [ -n "$commission" ] && printf "  ${D}Commission${N} %s\n" "$commission"
+
+        if [ -n "$delegators_output" ]; then
+            del_count=$(echo "$delegators_output" | grep -c "│.*0x" || echo "0")
+            [ "$del_count" -gt 0 ] && printf "  ${D}Delegators${N} %d\n" "$del_count"
+        fi
+
+        [ -n "$commission_rate" ] && printf "  ${D}Commission${N} %s\n" "$commission_rate"
+
+        pool_wei=$(echo "$pool_rewards" | grep -oP '^\d+')
+
+        # MON price from CoinGecko
+        mon_price=$(curl -s --connect-timeout 3 "https://api.coingecko.com/api/v3/simple/price?ids=monad&vs_currencies=usd" 2>/dev/null \
+            | grep -oP '"usd":\K[\d.]+' || echo "")
+
+        format_usd() {
+            local mon_str="$1"
+            if [ -n "$mon_price" ] && [ -n "$mon_str" ]; then
+                local usd=$(awk "BEGIN { printf \"%.2f\", ${mon_str} * ${mon_price} }")
+                local int=$(echo "$usd" | cut -d. -f1)
+                local dec=$(echo "$usd" | cut -d. -f2)
+                local fmt=$(LC_NUMERIC=en_US.UTF-8 printf "%'d" "$int" 2>/dev/null || echo "$int")
+                echo "\$${fmt}.${dec}"
+            fi
+        }
+
+        if [ -n "$delegator_output" ]; then
+            my_rewards_wei=$(echo "$delegator_output" | grep "Total Rewards" | sed 's/.*│ *\(.*\) *│.*/\1/' | grep -oP '^\d+')
+            if [ -n "$my_rewards_wei" ] && [ "$my_rewards_wei" != "0" ]; then
+                my_rewards_mon=$(awk "BEGIN { printf \"%.2f\", ${my_rewards_wei} / 1e18 }")
+                usd_str=$(format_usd "$my_rewards_mon")
+
+                printf "  ${D}Rewards${N}    ${Y}${B}%s MON${N}" "$(format_mon "$my_rewards_wei wei")"
+                [ -n "$usd_str" ] && printf "  ${D}(%s)${N}" "$usd_str"
+                echo ""
+            else
+                printf "  ${D}Rewards${N}    0 MON\n"
+            fi
+        else
+            if [ -n "$pool_rewards" ] && [ "$pool_rewards" != "0 wei" ]; then
+                pool_mon=$(awk "BEGIN { printf \"%.2f\", ${pool_wei} / 1e18 }")
+                usd_str=$(format_usd "$pool_mon")
+                printf "  ${D}Rewards${N}    ${Y}${B}%s MON${N}" "$(format_mon "$pool_rewards")"
+                [ -n "$usd_str" ] && printf "  ${D}(%s)${N}" "$usd_str"
+                echo ""
+            else
+                printf "  ${D}Rewards${N}    0 MON\n"
+            fi
+        fi
     else
         printf "  ${D}Stake${N}      ${D}—${N}\n"
         printf "  ${D}Rewards${N}    ${D}—${N}\n"
@@ -322,8 +404,45 @@ if [ -n "$mem_used_raw" ] && [ -n "$mem_total_raw" ]; then
     printf "  ${D}Memory${N}   %b  %s / %s\n" "$bar" "$mem_used_h" "$mem_total_h"
 fi
 
-triedb_size=$(lsblk -ndo SIZE /dev/triedb 2>/dev/null || echo "")
-[ -n "$triedb_size" ] && printf "  ${D}TrieDB${N}   %s\n" "$triedb_size"
+triedb_size=$(lsblk -ndo SIZE /dev/triedb 2>/dev/null | xargs || echo "")
+if [ -n "$triedb_size" ]; then
+    triedb_real=$(readlink -f /dev/triedb 2>/dev/null || echo "")
+    triedb_parent=$(echo "$triedb_real" | sed 's/p\?[0-9]*$//' | xargs -I{} basename {} 2>/dev/null || echo "")
+    nvme_model="" ; nvme_temp="" ; nvme_wear="" ; nvme_health="" ; nvme_read="" ; nvme_written=""
+    if [ -n "$triedb_parent" ]; then
+        nvme_model=$(lsblk -ndo MODEL "/dev/$triedb_parent" 2>/dev/null | xargs)
+        smart=$(nvme smart-log "/dev/$triedb_parent" 2>/dev/null) || smart=""
+        if [ -n "$smart" ]; then
+            nvme_temp=$(echo "$smart" | grep -i "^temperature" | head -1 | grep -oP '\d+' | head -1)
+            nvme_wear=$(echo "$smart" | grep -i "percentage_used" | grep -oP '\d+' | head -1)
+            read_units=$(echo "$smart" | grep -i "data_units_read" | grep -oP '[\d,]+' | head -1 | tr -d ',')
+            write_units=$(echo "$smart" | grep -i "data_units_written" | grep -oP '[\d,]+' | head -1 | tr -d ',')
+            [ -n "$read_units" ] && nvme_read=$(awk "BEGIN { v=$read_units*512000; if(v>=1e12) printf \"%.1fT\",v/1e12; else if(v>=1e9) printf \"%.1fG\",v/1e9; else printf \"%.0fM\",v/1e6 }")
+            [ -n "$write_units" ] && nvme_written=$(awk "BEGIN { v=$write_units*512000; if(v>=1e12) printf \"%.1fT\",v/1e12; else if(v>=1e9) printf \"%.1fG\",v/1e9; else printf \"%.0fM\",v/1e6 }")
+            if [ -n "$nvme_wear" ]; then
+                remaining=$((100 - nvme_wear))
+                if [ "$remaining" -ge 70 ]; then
+                    nvme_health="${G}healthy${N}"
+                elif [ "$remaining" -ge 30 ]; then
+                    nvme_health="${Y}degrading${N}"
+                else
+                    nvme_health="${R}critical${N}"
+                fi
+            fi
+        fi
+    fi
+    printf "  ${D}TrieDB${N}   %s" "$triedb_size"
+    [ -n "$nvme_model" ] && printf "  ${D}%s${N}" "$nvme_model"
+    echo ""
+    if [ -n "$nvme_wear" ] || [ -n "$nvme_temp" ]; then
+        printf "  ${D}NVMe${N}     "
+        [ -n "$nvme_health" ] && printf "%b" "$nvme_health"
+        [ -n "$nvme_wear" ] && printf "  ${D}life %s%%${N}" "$((100 - nvme_wear))"
+        [ -n "$nvme_temp" ] && printf "  ${D}%s°C${N}" "$nvme_temp"
+        [ -n "$nvme_written" ] && printf "  ${D}written %s${N}" "$nvme_written"
+        echo ""
+    fi
+fi
 REMOTE
 done
 
