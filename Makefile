@@ -31,11 +31,11 @@ observability: ## Deploy observability stack (Prometheus + Grafana)
 	ansible-playbook $(A) playbooks/setup-observability.yml
 
 ## Monitoring
-health: ## Run health checks
-	ansible-playbook $(A) playbooks/maintenance.yml --tags health
-
 status: ## Show validator status [ENV=] [NODE=]
 	@MONAD_INV=$(INV) ./scripts/validator-info.sh "$(NODE)"
+
+health: ## Run health checks
+	ansible-playbook $(A) playbooks/maintenance.yml --tags health
 
 logs: ## Tail logs [SVC=consensus|execution|rpc] [LINES=50] [NODE=]
 	$(eval SVC := $(or $(SVC),consensus))
@@ -59,9 +59,6 @@ stop: ## Stop services
 start: ## Start services
 	ansible-playbook $(A) playbooks/maintenance.yml --tags start
 
-backup: ## Backup keys and config
-	ansible-playbook $(A) playbooks/maintenance.yml --tags backup
-
 commission: ## Set commission rate [RATE=20] [NODE=]
 	@ansible $(A) validators --become-user monad -m shell -a '/home/monad/scripts/set-commission.sh $(or $(RATE),20)'
 
@@ -75,6 +72,17 @@ auto-compound: ## Enable auto-compound timer [SCHEDULE="0 8 * * *"] [NODE=]
 	ansible-playbook $(A) playbooks/maintenance.yml --tags auto-compound \
 		$(if $(SCHEDULE),-e compound_rewards_schedule="$(SCHEDULE)",) \
 		-e compound_rewards_enabled=true
+
+## Backup
+backup-config: ## Backup config on remote server [NODE=]
+	ansible-playbook $(A) playbooks/maintenance.yml --tags backup
+
+backup-keys: ## Download validator keystores to secrets/ [NODE=]
+	@ansible $(A) validators --become-user monad -m fetch \
+		-a 'src=/home/monad/key/id-secp dest=secrets/{{ inventory_hostname }}-id-secp flat=yes'
+	@ansible $(A) validators --become-user monad -m fetch \
+		-a 'src=/home/monad/key/id-bls dest=secrets/{{ inventory_hostname }}-id-bls flat=yes'
+	@echo "" && echo "Keys saved to secrets/"
 
 ## Migration
 migrate: ## Fast migrate validator [OLD=name] [NEW=name] (pre-deploy new node first)
@@ -133,4 +141,4 @@ help:
 	@echo ""
 
 .DEFAULT_GOAL := help
-.PHONY: deploy snapshot execution rpc register upgrade observability health status logs watch restart stop start backup commission claim compound auto-compound migrate recovery diagnose ping grafana hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help
+.PHONY: deploy snapshot execution rpc register upgrade observability status health logs watch restart stop start commission claim compound auto-compound backup-config backup-keys migrate recovery diagnose ping grafana hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help
