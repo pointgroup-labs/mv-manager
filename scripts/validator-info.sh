@@ -101,12 +101,19 @@ echo "╰${border}╯"
 cons=$(systemctl is-active monad-consensus 2>/dev/null || echo "inactive")
 exec_s=$(systemctl is-active "$EXEC_SVC" 2>/dev/null || echo "inactive")
 rpc_s=$(systemctl is-active monad-rpc 2>/dev/null || echo "inactive")
+sc_s=$(systemctl is-active fastlane-sidecar 2>/dev/null || echo "inactive")
+sc_exists=$(systemctl cat fastlane-sidecar &>/dev/null && echo "yes" || echo "")
 [ "$cons" = "active" ] && cs="${G}●${N}" || cs="${R}●${N}"
 [ "$exec_s" = "active" ] && es="${G}●${N}" || es="${R}●${N}"
 [ "$rpc_s" = "active" ] && rs="${G}●${N}" || rs="${R}●${N}"
+[ "$sc_s" = "active" ] && scs="${G}●${N}" || scs="${R}●${N}"
 
 echo ""
-echo -e "  $cs consensus   $es execution   $rs rpc"
+if [ -n "$sc_exists" ]; then
+    echo -e "  $cs consensus   $es execution   $rs rpc   $scs sidecar"
+else
+    echo -e "  $cs consensus   $es execution   $rs rpc"
+fi
 
 # ── Node info ────────────────────────────────────────────
 
@@ -368,6 +375,34 @@ if [ -n "$VAL_ID" ]; then
     else
         printf "  ${D}Stake${N}      ${D}—${N}\n"
         printf "  ${D}Rewards${N}    ${D}—${N}\n"
+    fi
+fi
+
+# ── MEV ─────────────────────────────────────────────────
+
+if [ "$sc_s" = "active" ]; then
+    sc_health=$(curl -s --connect-timeout 3 "http://localhost:8765/health" 2>/dev/null) || sc_health=""
+    if [ -n "$sc_health" ]; then
+        sc_txs=$(echo "$sc_health" | jq -r '.tx_received // empty' 2>/dev/null) || sc_txs=""
+        sc_streamed=$(echo "$sc_health" | jq -r '.tx_streamed // empty' 2>/dev/null) || sc_streamed=""
+        sc_last=$(echo "$sc_health" | jq -r '.last_received_at // empty' 2>/dev/null) || sc_last=""
+        if [ -n "$sc_txs" ]; then
+            echo ""
+            mev_line="  ${D}MEV txs${N}  ${C}$(format_number "$sc_txs")${N} received"
+            [ -n "$sc_streamed" ] && mev_line+="  ${C}$(format_number "$sc_streamed")${N} streamed"
+            if [ -n "$sc_last" ]; then
+                last_epoch=$(date -d "$sc_last" +%s 2>/dev/null || echo "")
+                if [ -n "$last_epoch" ]; then
+                    ago=$(( $(date +%s) - last_epoch ))
+                    if [ "$ago" -ge 0 ] && [ "$ago" -lt 60 ]; then
+                        mev_line+="  ${D}(last ${ago}s ago)${N}"
+                    elif [ "$ago" -ge 60 ]; then
+                        mev_line+="  ${D}(last $(human_uptime "$ago") ago)${N}"
+                    fi
+                fi
+            fi
+            echo -e "$mev_line"
+        fi
     fi
 fi
 

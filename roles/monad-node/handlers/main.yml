@@ -8,3 +8,19 @@
     name: "{{ service_identifier }}"
     state: restarted
     enabled: yes
+
+- name: Check monad is running
+  command: systemctl is-active --quiet {{ service_identifier }}
+  register: _monad_active
+  changed_when: false
+  failed_when: false
+  listen: Reload monad config
+
+- name: Run monad config reload
+  command: >
+    monad-debug-node
+    --control-panel-ipc-path {{ monad_control_panel_socket }}
+    reload-config
+  become_user: "{{ monad_user }}"
+  when: _monad_active.rc == 0
+  listen: Reload monad config

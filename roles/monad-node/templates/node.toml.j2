@@ -55,11 +55,18 @@ max_rtt_ms = 300
 max_mbps = 1000
 
 #########################################################
-# Peers configuration
+# Dedicated fullnodes / peers
 #########################################################
 
+{% if fastlane_dedicated_fullnodes | default([]) | length > 0 %}
+{% for fn in fastlane_dedicated_fullnodes %}
+[[fullnode_dedicated.identities]]
+secp256k1_pubkey = "{{ fn.secp256k1_pubkey }}"
+{% endfor %}
+{% else %}
 [fullnode_dedicated]
 identities = []
+{% endif %}
 
 [fullnode_raptorcast.full_nodes_prioritized]
 identities = []

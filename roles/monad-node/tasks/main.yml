@@ -249,7 +249,7 @@
     owner: "{{ monad_user }}"
     group: "{{ monad_group }}"
     mode: '0600'
-  notify: Restart monad
+  notify: Reload monad config
   tags: [monad, config]
 
 # =============================================================================

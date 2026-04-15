@@ -76,3 +76,8 @@ triedb_config:
   path: "/dev/triedb"
   partition_name: "triedb"
   partition_number: 1
+
+fastlane_dedicated_fullnodes: []
+# fastlane_dedicated_fullnodes:
+#   - secp256k1_pubkey: "0x..."
+#   - secp256k1_pubkey: "0x..."

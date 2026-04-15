@@ -1,0 +1,9 @@
+---
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Restart fastlane sidecar
+  systemd:
+    name: fastlane-sidecar
+    state: restarted

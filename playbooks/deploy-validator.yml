@@ -42,6 +42,10 @@
       tags: [observability]
       when: observability_enabled | default(false)
 
+    - role: fastlane
+      tags: [fastlane]
+      when: fastlane_enabled | default(false)
+
   post_tasks:
     - name: Deployment complete
       debug:

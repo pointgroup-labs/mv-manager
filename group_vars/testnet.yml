@@ -34,3 +34,8 @@ bootstrap_peers:
     secp256k1_pubkey: "0x03e72965cd3710d7bdde238fe24d36565b363632edccc22bf16dee2bcf16180475"
     name_record_sig: "0xa6fee099bfc8598a11cfafae9256dec8a143fd95fa94114c524ca0a8763af09529bb905d92d7cb88327e756db0eadfb6ebdab51c2b146e688a5d25aa6073d1fe00"
     auth_port: 8001
+
+fastlane_dedicated_fullnodes: []
+# fastlane_dedicated_fullnodes:
+#   - secp256k1_pubkey: "0x..."
+#   - secp256k1_pubkey: "0x..."

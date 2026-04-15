@@ -89,6 +89,13 @@ backup-keys: ## Download validator keystores to secrets/ [NODE=]
 migrate: ## Fast migrate validator [OLD=name] [NEW=name] (pre-deploy new node first)
 	ansible-playbook $(A) playbooks/migrate-validator.yml -e old_node=$(OLD) -e new_node=$(NEW)
 
+## MEV
+fastlane: ## Deploy FastLane sidecar [NODE=]
+	ansible-playbook $(A) playbooks/setup-fastlane.yml
+
+sidecar-health: ## Check sidecar health [NODE=]
+	@ansible $(A) validators -m shell -a 'curl -s http://localhost:8765/health | jq' 2>/dev/null | ./scripts/colorize-logs.sh
+
 ## Recovery
 recovery: ## Run recovery playbook
 	ansible-playbook $(A) playbooks/recovery.yml
@@ -142,4 +149,4 @@ help:
 	@echo ""
 
 .DEFAULT_GOAL := help
-.PHONY: deploy snapshot execution rpc register upgrade observability status health logs watch restart stop start commission claim compound auto-compound backup-config backup-keys migrate recovery diagnose ping grafana hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help
+.PHONY: deploy snapshot execution rpc register upgrade observability fastlane sidecar-health status health logs watch restart stop start commission claim compound auto-compound backup-config backup-keys migrate recovery diagnose ping grafana hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help

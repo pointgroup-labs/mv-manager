@@ -1,0 +1,95 @@
+---
+- name: Install FastLane GPG key
+  get_url:
+    url: https://fastlane.xyz/apt/fastlane-apt-key.gpg.bin
+    dest: /usr/share/keyrings/fastlane-apt-keyring.gpg
+    mode: '0644'
+  tags: [fastlane, install]
+
+- name: Add FastLane apt repository
+  copy:
+    content: "deb [signed-by=/usr/share/keyrings/fastlane-apt-keyring.gpg] https://fastlane-apt-repo.s3.amazonaws.com stable main\n"
+    dest: /etc/apt/sources.list.d/fastlane.list
+    mode: '0644'
+  register: fastlane_repo
+  tags: [fastlane, install]
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+  when: fastlane_repo.changed
+  tags: [fastlane, install]
+
+- name: Install FastLane sidecar
+  apt:
+    name: "fastlane-sidecar={{ fastlane_sidecar_version }}"
+    state: present
+  tags: [fastlane, install]
+
+- name: Hold sidecar version
+  dpkg_selections:
+    name: fastlane-sidecar
+    selection: hold
+  tags: [fastlane, install]
+
+- name: Create FastLane home directory
+  file:
+    path: "{{ fastlane_home }}"
+    state: directory
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0755'
+  tags: [fastlane, config]
+
+- name: Create FastLane environment file
+  template:
+    src: fastlane.env.j2
+    dest: "{{ fastlane_home }}/.env"
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0644'
+  notify: Restart fastlane sidecar
+  tags: [fastlane, config]
+
+- name: Create systemd override directory
+  file:
+    path: /etc/systemd/system/fastlane-sidecar.service.d
+    state: directory
+    mode: '0755'
+  when: fastlane_cpu_pinning | default('') | length > 0
+  tags: [fastlane, config]
+
+- name: Configure CPU pinning for sidecar
+  template:
+    src: fastlane-sidecar-override.conf.j2
+    dest: /etc/systemd/system/fastlane-sidecar.service.d/override.conf
+    mode: '0644'
+  when: fastlane_cpu_pinning | default('') | length > 0
+  notify:
+    - Reload systemd
+    - Restart fastlane sidecar
+  tags: [fastlane, config]
+
+- name: Enable and start FastLane sidecar
+  systemd:
+    name: fastlane-sidecar
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  tags: [fastlane, service]
+
+- name: Wait for sidecar health endpoint
+  uri:
+    url: "http://localhost:{{ fastlane_sidecar_port }}/health"
+    method: GET
+  register: sidecar_health
+  until: sidecar_health.status == 200
+  retries: 6
+  delay: 5
+  failed_when: false
+  tags: [fastlane, verify]
+
+- name: Display sidecar health
+  debug:
+    msg: "{{ sidecar_health.json | default('Sidecar not responding') }}"
+  tags: [fastlane, verify]

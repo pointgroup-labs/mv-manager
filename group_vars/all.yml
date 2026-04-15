@@ -181,6 +181,14 @@ backup_destination: "{{ monad_home }}/backups"
 compound_rewards_enabled: false
 compound_rewards_schedule: "0 8 * * *"
 
+# Fastlane
+fastlane_enabled: false
+fastlane_sidecar_version: "0.0.13"
+fastlane_home: "{{ monad_home }}/fastlane"
+fastlane_sidecar_port: 8765
+fastlane_cpu_pinning: ""
+fastlane_log_level: "info"
+
 # Security
 ssh_port: 22
 ssh_permit_root_login: "prohibit-password"
