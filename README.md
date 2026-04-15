@@ -1,6 +1,6 @@
 # Monad Validator Manager
 
-[![Monad](https://img.shields.io/badge/Monad-purple?logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI4IiBjeT0iOCIgcj0iNyIgZmlsbD0id2hpdGUiLz48L3N2Zz4=&style=for-the-badge)](https://monad.xyz)
+[![Monad](https://img.shields.io/badge/Monad-6e54ff?logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI4IiBjeT0iOCIgcj0iNyIgZmlsbD0id2hpdGUiLz48L3N2Zz4=&style=for-the-badge)](https://monad.xyz)
 [![Ansible](https://img.shields.io/badge/Ansible-2.15%2B-grey?logo=ansible&logoColor=white&style=for-the-badge)](https://docs.ansible.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 
