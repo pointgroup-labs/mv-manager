@@ -109,9 +109,16 @@
   tasks:
     - name: Read migration staging dir from controller facts
       set_fact:
-        migration_stage_dir: "{{ hostvars['localhost'].migration_stage_dir }}"
+        migration_stage_dir: "{{ hostvars['localhost']['migration_stage_dir'] | default('') }}"
       run_once: true
-      failed_when: migration_stage_dir is not defined or migration_stage_dir | length == 0
+
+    - name: Assert staging dir was propagated from Play 1
+      assert:
+        that:
+          - migration_stage_dir | length > 0
+          - migration_stage_dir is match('^/.+')
+        fail_msg: "migration_stage_dir not propagated from Play 1; run the full playbook (both plays)."
+      run_once: true
 
     - name: Stop services on new node
       systemd:
@@ -286,9 +293,7 @@
 
     - name: Detect controller OS for secure delete
       set_fact:
-        controller_system: "{{ hostvars['localhost']['ansible_system'] | default(lookup('pipe', 'uname -s')) }}"
-      delegate_to: localhost
-      become: no
+        controller_system: "{{ lookup('pipe', 'uname -s') }}"
       run_once: true
 
     - name: Find staged migration files for secure delete
@@ -319,7 +324,7 @@
       delegate_to: localhost
       become: no
       changed_when: true
-      when: controller_system in ['Darwin', 'FreeBSD', 'OpenBSD', 'NetBSD']
+      when: controller_system in ['Darwin', 'FreeBSD', 'NetBSD']
 
     - name: Secure delete staged key material (portable dd fallback)
       shell: |
@@ -334,7 +339,7 @@
       delegate_to: localhost
       become: no
       changed_when: true
-      when: controller_system not in ['Linux', 'Darwin', 'FreeBSD', 'OpenBSD', 'NetBSD']
+      when: controller_system not in ['Linux', 'Darwin', 'FreeBSD', 'NetBSD']
 
     - name: Remove staging directory
       file:
