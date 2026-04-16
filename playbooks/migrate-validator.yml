@@ -39,7 +39,7 @@
 
     - name: Compute migration staging dir on controller
       set_fact:
-        migration_stage_dir: "{{ lookup('env', 'HOME') }}/.mv-manager/migrations/{{ lookup('pipe', 'date +%s') }}-{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=8') }}"
+        migration_stage_dir: "{{ lookup('env', 'HOME') }}/.mv-manager/migrations/{{ lookup('pipe', 'date +%s') }}"
       delegate_to: localhost
       delegate_facts: true
       run_once: true
@@ -291,11 +291,6 @@
       delay: 10
       until: rpc.status == 200
 
-    - name: Detect controller OS for secure delete
-      set_fact:
-        controller_system: "{{ lookup('pipe', 'uname -s') }}"
-      run_once: true
-
     - name: Find staged migration files for secure delete
       find:
         paths: "{{ migration_stage_dir }}"
@@ -306,40 +301,18 @@
       delegate_to: localhost
       become: no
 
-    - name: Secure delete staged key material (Linux/GNU shred)
-      command: shred -u -n 3 -- {{ item.path | quote }}
+    - name: Secure delete staged key material
+      command: >-
+        {{ 'shred -u -n 3 --' if controller_system == 'Linux' else 'rm -P --' }}
+        {{ item.path | quote }}
       loop: "{{ stage_files.files }}"
       loop_control:
         label: "{{ item.path }}"
       delegate_to: localhost
       become: no
       changed_when: true
-      when: controller_system == 'Linux'
-
-    - name: Secure delete staged key material (macOS/BSD rm -P)
-      command: rm -P -- {{ item.path | quote }}
-      loop: "{{ stage_files.files }}"
-      loop_control:
-        label: "{{ item.path }}"
-      delegate_to: localhost
-      become: no
-      changed_when: true
-      when: controller_system in ['Darwin', 'FreeBSD', 'NetBSD']
-
-    - name: Secure delete staged key material (portable dd fallback)
-      shell: |
-        set -euo pipefail
-        f={{ item.path | quote }}
-        sz=$(wc -c < "$f")
-        for _ in 1 2 3; do dd if=/dev/urandom of="$f" bs=1 count="$sz" conv=notrunc status=none; done
-        rm -f -- "$f"
-      loop: "{{ stage_files.files }}"
-      loop_control:
-        label: "{{ item.path }}"
-      delegate_to: localhost
-      become: no
-      changed_when: true
-      when: controller_system not in ['Linux', 'Darwin', 'FreeBSD', 'NetBSD']
+      vars:
+        controller_system: "{{ lookup('pipe', 'uname -s') }}"
 
     - name: Remove staging directory
       file:
