@@ -18,7 +18,6 @@
   get_url:
     url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-{{ node_exporter_arch }}.tar.gz"
     dest: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
-    checksum: "sha256:{{ node_exporter_checksum }}"
     mode: '0644'
   when: ne_version_check.rc != 0 or node_exporter_version not in (ne_version_check.stdout | default(''))
   tags: [monitoring]
