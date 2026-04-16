@@ -39,8 +39,9 @@
 
     - name: Compute migration staging dir on controller
       set_fact:
-        migration_stage_dir: "{{ lookup('env', 'HOME') }}/.mv-manager/migrations/{{ ansible_date_time.epoch | default(lookup('pipe', 'date +%s')) }}"
+        migration_stage_dir: "{{ lookup('env', 'HOME') }}/.mv-manager/migrations/{{ lookup('pipe', 'date +%s') }}-{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=8') }}"
       delegate_to: localhost
+      delegate_facts: true
       run_once: true
 
     - name: Stop services on old node
@@ -106,11 +107,11 @@
     - ../group_vars/{{ env }}.yml
 
   tasks:
-    - name: Recompute migration staging dir
+    - name: Read migration staging dir from controller facts
       set_fact:
-        migration_stage_dir: "{{ lookup('env', 'HOME') }}/.mv-manager/migrations/{{ (lookup('pipe', 'ls -1t ' ~ lookup('env', 'HOME') ~ '/.mv-manager/migrations 2>/dev/null | head -1') | trim) }}"
-      delegate_to: localhost
+        migration_stage_dir: "{{ hostvars['localhost'].migration_stage_dir }}"
       run_once: true
+      failed_when: migration_stage_dir is not defined or migration_stage_dir | length == 0
 
     - name: Stop services on new node
       systemd:
@@ -283,7 +284,14 @@
       delay: 10
       until: rpc.status == 200
 
-    - name: Find staged migration files for shred
+    - name: Detect controller OS for secure delete
+      set_fact:
+        controller_system: "{{ hostvars['localhost']['ansible_system'] | default(lookup('pipe', 'uname -s')) }}"
+      delegate_to: localhost
+      become: no
+      run_once: true
+
+    - name: Find staged migration files for secure delete
       find:
         paths: "{{ migration_stage_dir }}"
         patterns: "*"
@@ -293,14 +301,40 @@
       delegate_to: localhost
       become: no
 
-    - name: Shred staged key material on controller
-      command: shred -u -n 3 {{ item.path | quote }}
+    - name: Secure delete staged key material (Linux/GNU shred)
+      command: shred -u -n 3 -- {{ item.path | quote }}
       loop: "{{ stage_files.files }}"
       loop_control:
         label: "{{ item.path }}"
       delegate_to: localhost
       become: no
       changed_when: true
+      when: controller_system == 'Linux'
+
+    - name: Secure delete staged key material (macOS/BSD rm -P)
+      command: rm -P -- {{ item.path | quote }}
+      loop: "{{ stage_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+      delegate_to: localhost
+      become: no
+      changed_when: true
+      when: controller_system in ['Darwin', 'FreeBSD', 'OpenBSD', 'NetBSD']
+
+    - name: Secure delete staged key material (portable dd fallback)
+      shell: |
+        set -euo pipefail
+        f={{ item.path | quote }}
+        sz=$(wc -c < "$f")
+        for _ in 1 2 3; do dd if=/dev/urandom of="$f" bs=1 count="$sz" conv=notrunc status=none; done
+        rm -f -- "$f"
+      loop: "{{ stage_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+      delegate_to: localhost
+      become: no
+      changed_when: true
+      when: controller_system not in ['Linux', 'Darwin', 'FreeBSD', 'OpenBSD', 'NetBSD']
 
     - name: Remove staging directory
       file:
