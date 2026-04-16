@@ -6,6 +6,8 @@ log_level = "info"
 
 [staking]
 type = "local"
+# Alternative: unset this and export FUNDED_ADDRESS_PRIVATE_KEY in the
+# invoking task's environment: block (takes precedence, never hits disk).
 funded_address_private_key = "{{ vault_funded_wallet_private_key | default('') }}"
 commission_rate = {{ validator_commission_rate }}
 
