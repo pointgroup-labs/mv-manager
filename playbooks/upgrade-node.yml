@@ -4,6 +4,8 @@
   become: yes
   gather_facts: yes
   serial: 1
+  any_errors_fatal: true
+  max_fail_percentage: 0
 
   vars_files:
     - ../group_vars/all.yml
@@ -11,6 +13,11 @@
     - ../group_vars/{{ env }}.yml
 
   tasks:
+    - name: Check key dir exists before backup
+      stat:
+        path: "{{ monad_key_dir }}"
+      register: key_dir_stat
+
     - name: Backup keys and config
       archive:
         path:
@@ -19,7 +26,7 @@
         dest: "{{ monad_home }}/backups/pre-upgrade-{{ monad_version }}-{{ ansible_date_time.iso8601_basic_short }}.tar.gz"
         format: gz
       become_user: "{{ monad_user }}"
-      ignore_errors: yes
+      when: key_dir_stat.stat.exists
 
     - name: Stop services
       systemd:
@@ -29,7 +36,10 @@
         - "{{ rpc_service_identifier }}"
         - "{{ service_identifier }}"
         - "{{ execution_service_identifier }}"
-      ignore_errors: yes
+      failed_when:
+        - stop_result is failed
+        - "'Could not find the requested service' not in (stop_result.msg | default(''))"
+      register: stop_result
 
     - name: Unhold monad package
       dpkg_selections:
@@ -57,7 +67,6 @@
         - "{{ execution_service_identifier }}"
         - "{{ service_identifier }}"
         - "{{ rpc_service_identifier }}"
-      ignore_errors: yes
 
     - name: Wait for RPC
       uri:
