@@ -73,24 +73,31 @@
     enabled: no
     state: stopped
     masked: yes
-  ignore_errors: yes
+  register: disable_bft_result
+  failed_when:
+    - disable_bft_result is failed
+    - "'Could not find the requested service' not in (disable_bft_result.msg | default(''))"
+    - "'not loaded' not in (disable_bft_result.msg | default(''))"
   tags: [monad, install]
 
-- name: Check if TrieDB is initialized
-  command: monad-mpt --storage {{ triedb_config.path }}
-  register: triedb_check
-  changed_when: false
-  failed_when: false
+- name: Initialize TrieDB storage
+  command: /usr/local/bin/monad-mpt --create --storage {{ triedb_config.path }}
+  args:
+    creates: "{{ triedb_config.path }}/.initialized"
+  become_user: "{{ monad_user }}"
   when: setup_triedb | default(false) | bool
   tags: [monad, install]
 
-- name: Initialize TrieDB via monad-mpt
-  systemd:
-    name: monad-mpt
-    state: started
-  when:
-    - setup_triedb | default(false) | bool
-    - triedb_check.rc is defined and triedb_check.rc != 0
+- name: Mark TrieDB as initialized
+  file:
+    path: "{{ triedb_config.path }}/.initialized"
+    state: touch
+    owner: "{{ monad_user }}"
+    group: "{{ monad_group }}"
+    mode: '0644'
+    modification_time: preserve
+    access_time: preserve
+  when: setup_triedb | default(false) | bool
   tags: [monad, install]
 
 # =============================================================================
@@ -202,9 +209,10 @@
       --authenticated-udp-port {{ monad[type].consensus.ports.auth_udp_port }} \
       --self-record-seq-num {{ self_record_seq_num | default(1) }} \
       --keystore-path {{ monad_secp_key_file }} \
-      --password "{{ vault_keystore_password }}" 2>&1 | grep self_name_record_sig | cut -d'"' -f2
+      --password "{{ vault_keystore_password }}" 2>&1 | awk -F'"' '/self_name_record_sig/ {print $2; exit}'
   register: name_record_sig_result
   changed_when: false
+  failed_when: name_record_sig_result.stdout | default('') | trim | length == 0
   no_log: true
   tags: [monad, config]
 
@@ -280,13 +288,10 @@
 # =============================================================================
 # MONAD-CRUFT COMPATIBILITY
 # =============================================================================
-- name: Create monad-bft symlink for monad-cruft compatibility
+- name: Remove legacy self-referential monad-bft symlink
   file:
-    src: "{{ monad_home }}"
-    dest: "{{ monad_home }}/monad-bft"
-    state: link
-    owner: "{{ monad_user }}"
-    group: "{{ monad_group }}"
+    path: "{{ monad_home }}/monad-bft"
+    state: absent
   tags: [monad, config]
 
 - name: Create ledger symlink for monad-cruft compatibility
