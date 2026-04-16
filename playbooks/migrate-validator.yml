@@ -37,6 +37,12 @@
       delegate_to: localhost
       run_once: true
 
+    - name: Compute migration staging dir on controller
+      set_fact:
+        migration_stage_dir: "{{ lookup('env', 'HOME') }}/.mv-manager/migrations/{{ ansible_date_time.epoch | default(lookup('pipe', 'date +%s')) }}"
+      delegate_to: localhost
+      run_once: true
+
     - name: Stop services on old node
       systemd:
         name: "{{ item }}"
@@ -45,11 +51,14 @@
         - "{{ rpc_service_identifier }}"
         - "{{ service_identifier }}"
         - "{{ execution_service_identifier }}"
-      ignore_errors: yes
+      register: stop_old_result
+      failed_when:
+        - stop_old_result is failed
+        - "'Could not find the requested service' not in (stop_old_result.msg | default(''))"
 
-    - name: Create temp directory on controller
+    - name: Create staging directory on controller
       file:
-        path: /tmp/monad-migration
+        path: "{{ migration_stage_dir }}"
         state: directory
         mode: '0700'
       delegate_to: localhost
@@ -58,8 +67,9 @@
     - name: Fetch key files from old node
       fetch:
         src: "{{ monad_key_dir }}/{{ item }}"
-        dest: /tmp/monad-migration/
+        dest: "{{ migration_stage_dir }}/"
         flat: yes
+        mode: '0600'
       loop:
         - id-secp
         - id-bls
@@ -69,13 +79,18 @@
     - name: Fetch staking CLI config
       fetch:
         src: "{{ monad_home }}/staking-sdk-cli/config.toml"
-        dest: /tmp/monad-migration/staking-config.toml
+        dest: "{{ migration_stage_dir }}/staking-config.toml"
         flat: yes
-      ignore_errors: yes
+        mode: '0600'
+      register: fetch_staking
+      failed_when:
+        - fetch_staking is failed
+        - "'Unable to find' not in (fetch_staking.msg | default(''))"
+        - "'file not found' not in (fetch_staking.msg | default('') | lower)"
 
     - name: Old node stopped
       debug:
-        msg: "Services stopped on {{ old_node }} ({{ ansible_host }}). Keys fetched to controller."
+        msg: "Services stopped on {{ old_node }} ({{ ansible_host }}). Keys fetched to {{ migration_stage_dir }}."
 
 # =============================================================================
 # PLAY 2: Swap keys and restart new node
@@ -91,6 +106,12 @@
     - ../group_vars/{{ env }}.yml
 
   tasks:
+    - name: Recompute migration staging dir
+      set_fact:
+        migration_stage_dir: "{{ lookup('env', 'HOME') }}/.mv-manager/migrations/{{ (lookup('pipe', 'ls -1t ' ~ lookup('env', 'HOME') ~ '/.mv-manager/migrations 2>/dev/null | head -1') | trim) }}"
+      delegate_to: localhost
+      run_once: true
+
     - name: Stop services on new node
       systemd:
         name: "{{ item }}"
@@ -99,11 +120,14 @@
         - "{{ rpc_service_identifier }}"
         - "{{ service_identifier }}"
         - "{{ execution_service_identifier }}"
-      ignore_errors: yes
+      register: stop_new_result
+      failed_when:
+        - stop_new_result is failed
+        - "'Could not find the requested service' not in (stop_new_result.msg | default(''))"
 
     - name: Restore key files from controller
       copy:
-        src: "/tmp/monad-migration/{{ item }}"
+        src: "{{ migration_stage_dir }}/{{ item }}"
         dest: "{{ monad_key_dir }}/{{ item }}"
         owner: "{{ monad_user }}"
         group: "{{ monad_group }}"
@@ -114,7 +138,7 @@
 
     - name: Restore public key files
       copy:
-        src: "/tmp/monad-migration/{{ item }}"
+        src: "{{ migration_stage_dir }}/{{ item }}"
         dest: "{{ monad_key_dir }}/{{ item }}"
         owner: "{{ monad_user }}"
         group: "{{ monad_group }}"
@@ -123,14 +147,21 @@
         - id-secp.pub
         - id-bls.pub
 
+    - name: Check staking config was fetched
+      stat:
+        path: "{{ migration_stage_dir }}/staking-config.toml"
+      register: staking_cfg_stat
+      delegate_to: localhost
+      become: no
+
     - name: Restore staking CLI config
       copy:
-        src: /tmp/monad-migration/staking-config.toml
+        src: "{{ migration_stage_dir }}/staking-config.toml"
         dest: "{{ monad_home }}/staking-sdk-cli/config.toml"
         owner: "{{ monad_user }}"
         group: "{{ monad_group }}"
         mode: '0600'
-      ignore_errors: yes
+      when: staking_cfg_stat.stat.exists
 
     - name: Generate name record signature
       shell: |
@@ -139,9 +170,10 @@
           --authenticated-udp-port {{ monad[type].consensus.ports.auth_udp_port }} \
           --self-record-seq-num {{ self_record_seq_num | default(1) }} \
           --keystore-path {{ monad_secp_key_file }} \
-          --password "{{ vault_keystore_password }}" 2>&1 | grep self_name_record_sig | cut -d'"' -f2
+          --password "{{ vault_keystore_password }}" 2>&1 | awk -F'"' '/self_name_record_sig/ {print $2; exit}'
       register: name_record_sig_result
       changed_when: false
+      failed_when: name_record_sig_result.stdout | default('') | trim | length == 0
       no_log: true
 
     - name: Set name record signature fact
@@ -177,9 +209,45 @@
         mode: '0600'
       no_log: true
 
-    - name: Clear WAL to prevent high-qc-ahead panic after key swap
-      shell: rm -rf {{ monad_wal_dir }}/* {{ monad_home }}/wal_*
-      changed_when: true
+    - name: Validate WAL dir path before clearing
+      assert:
+        that:
+          - monad_wal_dir is defined
+          - monad_wal_dir | length > 0
+          - monad_wal_dir is match('^/.+')
+          - monad_wal_dir != '/'
+        fail_msg: "Refusing to clear WAL: monad_wal_dir is empty or unsafe ({{ monad_wal_dir | default('<undef>') }})"
+
+    - name: Find WAL files
+      find:
+        paths: "{{ monad_wal_dir }}"
+        patterns: "*"
+        hidden: true
+        file_type: any
+      register: wal_files
+
+    - name: Clear WAL files
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ wal_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+
+    - name: Find legacy wal_* dirs
+      find:
+        paths: "{{ monad_home }}"
+        patterns: "wal_*"
+        file_type: any
+      register: legacy_wal
+
+    - name: Clear legacy wal_* dirs
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ legacy_wal.files }}"
+      loop_control:
+        label: "{{ item.path }}"
 
     - name: Start services
       systemd:
@@ -190,7 +258,6 @@
         - "{{ execution_service_identifier }}"
         - "{{ service_identifier }}"
         - "{{ rpc_service_identifier }}"
-      ignore_errors: yes
 
     - name: Wait for startup
       pause:
@@ -216,9 +283,28 @@
       delay: 10
       until: rpc.status == 200
 
-    - name: Cleanup controller temp files
+    - name: Find staged migration files for shred
+      find:
+        paths: "{{ migration_stage_dir }}"
+        patterns: "*"
+        hidden: true
+        file_type: file
+      register: stage_files
+      delegate_to: localhost
+      become: no
+
+    - name: Shred staged key material on controller
+      command: shred -u -n 3 {{ item.path | quote }}
+      loop: "{{ stage_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+      delegate_to: localhost
+      become: no
+      changed_when: true
+
+    - name: Remove staging directory
       file:
-        path: /tmp/monad-migration
+        path: "{{ migration_stage_dir }}"
         state: absent
       delegate_to: localhost
       become: no
