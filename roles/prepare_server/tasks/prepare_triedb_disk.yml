@@ -56,7 +56,7 @@
   ansible.builtin.copy:
     dest: /etc/udev/rules.d/99-triedb.rules
     content: |
-      ENV{ID_PART_ENTRY_UUID}=="{{ partition_uuid }}", MODE="0666", SYMLINK+="{{ triedb_config.partition_name }}"
+      ENV{ID_PART_ENTRY_UUID}=="{{ partition_uuid }}", OWNER="{{ monad_user }}", GROUP="{{ monad_group }}", MODE="0660", SYMLINK+="{{ triedb_config.partition_name }}"
     owner: root
     group: root
     mode: "0644"
