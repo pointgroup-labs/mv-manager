@@ -156,6 +156,7 @@ required_packages:
   - libhugetlbfs-dev
   - libhugetlbfs-bin
   - libcrypto++-dev
+  - speedtest-cli
 
 # Ubuntu 24.04 specific boost libraries
 ubuntu_2404_packages:

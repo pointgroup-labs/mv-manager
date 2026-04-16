@@ -13,13 +13,14 @@ get_hosts() {
         jq -r "._meta.hostvars | to_entries | map(select($filter)) | .[] | \"\(.key)|\(.value.ansible_host)|\(.value.validator_id // \"\")|\(.value.type // \"validator\")\""
 }
 
-for entry in $(get_hosts); do
+while IFS= read -r entry; do
+    [ -z "$entry" ] && continue
     NAME=$(echo "$entry" | cut -d'|' -f1)
     IP=$(echo "$entry" | cut -d'|' -f2)
     VAL_ID=$(echo "$entry" | cut -d'|' -f3)
     TYPE=$(echo "$entry" | cut -d'|' -f4)
 
-    ssh -o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no "root@$IP" bash -s "$TYPE" "$VAL_ID" "$NAME" "$IP" << 'REMOTE' 2>/dev/null || echo -e "\n  \033[31m✗ connection failed: $NAME ($IP)\033[0m"
+    ssh -o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=accept-new "root@$IP" bash -s "$TYPE" "$VAL_ID" "$NAME" "$IP" << 'REMOTE' 2>/dev/null || echo -e "\n  \033[31m✗ connection failed: $NAME ($IP)\033[0m"
 G='\033[32m'; Y='\033[33m'; R='\033[31m'; C='\033[36m'
 D='\033[2m'; B='\033[1m'; M='\033[35m'; N='\033[0m'
 
@@ -479,6 +480,6 @@ if [ -n "$triedb_size" ]; then
     fi
 fi
 REMOTE
-done
+done < <(get_hosts)
 
 echo ""

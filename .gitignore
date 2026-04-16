@@ -19,7 +19,12 @@ group_vars/vault-*.yml
 *.tmp
 *.bak
 *.swp
+*.swo
+.*.swp
+.*.swo
 *~
+*.orig
+*.decrypted
 
 # Python
 __pycache__/
