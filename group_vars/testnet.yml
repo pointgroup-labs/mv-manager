@@ -35,6 +35,13 @@ bootstrap_peers:
     name_record_sig: "0xa6fee099bfc8598a11cfafae9256dec8a143fd95fa94114c524ca0a8763af09529bb905d92d7cb88327e756db0eadfb6ebdab51c2b146e688a5d25aa6073d1fe00"
     auth_port: 8001
 
+setup_triedb: true
+triedb_config:
+  drive: "/dev/nvme1n1"
+  path: "/dev/triedb"
+  partition_name: "triedb"
+  partition_number: 1
+
 fastlane_dedicated_fullnodes: []
 # fastlane_dedicated_fullnodes:
 #   - secp256k1_pubkey: "0x..."
