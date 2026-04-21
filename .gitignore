@@ -9,6 +9,8 @@ logs/*.log
 *.vault
 group_vars/vault.yml
 group_vars/vault-*.yml
+inventory/host_vars/*/vault.yml
+inventory/host_vars/*/vault-*.yml
 
 # Sensitive files
 **/secrets/
