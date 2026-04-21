@@ -38,6 +38,10 @@ fi)
 endef
 
 ## Deployment
+bootstrap: ## Bootstrap new validator: generate keys + vault [NAME=foo-testnet]
+	$(if $(NAME),,$(error NAME= required, e.g. NAME=kiwi-testnet))
+	@NAME=$(NAME) $(if $(filter command\ line environment,$(origin ENV)),ENV=$(ENV),) ./scripts/bootstrap.sh
+
 deploy: ## Deploy validator
 	ansible-playbook $(A) $(DR) playbooks/deploy-validator.yml
 
@@ -202,4 +206,4 @@ help:
 	@echo ""
 
 .DEFAULT_GOAL := help
-.PHONY: deploy snapshot execution rpc register upgrade observability fastlane sidecar-health status health logs watch restart stop start commission claim compound auto-compound backup-config backup-keys migrate recovery diagnose ping grafana hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help
+.PHONY: bootstrap deploy snapshot execution rpc register upgrade observability fastlane sidecar-health status health logs watch restart stop start commission claim compound auto-compound backup-config backup-keys migrate recovery diagnose ping grafana hardware speedtest ssh check vault-edit vault-encrypt vault-decrypt help
