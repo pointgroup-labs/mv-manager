@@ -131,6 +131,8 @@ required_packages:
   - tmux
   - jq
   - unzip
+  - fail2ban
+  - ufw
   - build-essential
   - python3
   - python3-pip
