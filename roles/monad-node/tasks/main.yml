@@ -204,21 +204,48 @@
 # =============================================================================
 - name: Generate name record signature
   shell: |
+    set -o pipefail
     /usr/local/bin/monad-sign-name-record \
       --address {{ ansible_host }}:{{ monad_p2p_port }} \
       --authenticated-udp-port {{ monad[type].consensus.ports.auth_udp_port }} \
       --self-record-seq-num {{ self_record_seq_num | default(1) }} \
       --keystore-path {{ monad_secp_key_file }} \
-      --password "{{ vault_keystore_password }}" 2>&1 | awk -F'"' '/self_name_record_sig/ {print $2; exit}'
+      --password "{{ vault_keystore_password }}" 2>&1
+  args:
+    executable: /bin/bash
   register: name_record_sig_result
   changed_when: false
-  failed_when: name_record_sig_result.stdout | default('') | trim | length == 0
+  failed_when: false
   no_log: true
   tags: [monad, config]
 
-- name: Set name record signature fact
+- name: Fail on keystore password mismatch
+  fail:
+    msg: |
+      Keystore at {{ monad_secp_key_file }} on {{ inventory_hostname }} cannot be decrypted
+      with vault_keystore_password. The keystore was created with a different password.
+      Either update vault_keystore_password to the original, or (if the key is unregistered)
+      delete the stale keystore and redeploy:
+        ssh {{ inventory_hostname }} "sudo rm -f /home/monad/key/id-secp /home/monad/key/id-bls /home/monad/key/*.pub"
+  when: "'ChecksumError' in (name_record_sig_result.stdout | default('')) or 'FailedChecksumVerification' in (name_record_sig_result.stdout | default(''))"
+  tags: [monad, config]
+
+- name: Fail on other sign-name-record errors
+  fail:
+    msg: "monad-sign-name-record failed (rc={{ name_record_sig_result.rc }}). Output: {{ name_record_sig_result.stdout | default('<empty>') }}"
+  when: name_record_sig_result.rc != 0
+  tags: [monad, config]
+
+- name: Parse name record signature
   set_fact:
-    self_name_record_sig: "{{ name_record_sig_result.stdout }}"
+    self_name_record_sig: "{{ (name_record_sig_result.stdout | regex_search('self_name_record_sig\\s*[=:]\\s*\"([^\"]+)\"', '\\1') | default([], true) | first | default('')) | trim }}"
+  tags: [monad, config]
+
+- name: Assert name record signature parsed
+  assert:
+    that:
+      - self_name_record_sig | length > 0
+    fail_msg: "Parsed signature was empty. Raw monad-sign-name-record output: {{ name_record_sig_result.stdout | default('<empty>') }}"
   tags: [monad, config]
 
 - name: Create monad environment file
