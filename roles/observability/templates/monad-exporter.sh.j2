@@ -48,6 +48,27 @@ collect() {
         echo "monad_sync_status 0"
     fi
 
+    echo "# HELP monad_version_outdated 1 if local monad version differs from latest published"
+    echo "# TYPE monad_version_outdated gauge"
+    current_ver=$(monad-node --version 2>&1 | grep -oP 'tag":"v\K[^"]+' | head -1) || true
+    chain_hex=$(rpc "eth_chainId" "")
+    network=""
+    if [ -n "$chain_hex" ]; then
+        case $((chain_hex)) in
+            143) network="mainnet" ;;
+            10143) network="testnet" ;;
+        esac
+    fi
+    if [ -n "$current_ver" ] && [ -n "$network" ]; then
+        latest_ver=$(curl -sf --max-time 5 "https://docs.monad.xyz/networks.json" 2>/dev/null \
+            | jq -r ".${network}.monad_version // empty" 2>/dev/null) || latest_ver=""
+        if [ -n "$latest_ver" ]; then
+            outdated=0
+            [ "$current_ver" != "$latest_ver" ] && outdated=1
+            echo "monad_version_outdated{current=\"$current_ver\",latest=\"$latest_ver\",network=\"$network\"} $outdated"
+        fi
+    fi
+
     echo "# HELP monad_epoch Current staking epoch"
     echo "# TYPE monad_epoch gauge"
     epoch_raw=$(eth_call "0x757991a8")
