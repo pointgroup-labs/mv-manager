@@ -115,7 +115,7 @@ claim: ## Claim validator rewards [NODE=]
 compound: ## Compound rewards (claim + restake) [NODE=]
 	@ansible $(A) validators -b --become-user monad -m shell -a '$(H)/scripts/compound-rewards.sh'
 
-auto-compound: ## Enable auto-compound timer [SCHEDULE="0 8 * * *"] [NODE=]
+auto-compound: ## Enable auto-compound timer [SCHEDULE="*-*-* 08:00:00"] [NODE=]
 	ansible-playbook $(A) playbooks/maintenance.yml --tags auto-compound \
 		$(if $(SCHEDULE),-e compound_rewards_schedule="$(SCHEDULE)",) \
 		-e compound_rewards_enabled=true

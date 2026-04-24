@@ -182,7 +182,7 @@ backup_schedule: "0 2 * * *"
 backup_destination: "{{ monad_home }}/backups"
 
 compound_rewards_enabled: false
-compound_rewards_schedule: "0 8 * * *"
+compound_rewards_schedule: "*-*-* 08:00:00"
 
 # Fastlane
 fastlane_enabled: false
