@@ -246,6 +246,7 @@
     that:
       - self_name_record_sig | length > 0
     fail_msg: "Parsed signature was empty. Raw monad-sign-name-record output: {{ name_record_sig_result.stdout | default('<empty>') }}"
+  when: not ansible_check_mode
   tags: [monad, config]
 
 - name: Create monad environment file
