@@ -84,6 +84,9 @@ human_uptime() {
     fi
 }
 
+LW=14
+lbl() { printf "  ${D}%-${LW}s${N}" "$1"; }
+
 # ── Header ───────────────────────────────────────────────
 
 inner=42
@@ -147,8 +150,8 @@ if [ -n "$latest_ver" ]; then
 fi
 
 echo ""
-printf "  ${D}Version${N}  v%s%b\n" "$ver" "$ver_indicator"
-printf "  ${D}Network${N}  ${Y}%s${N}\n" "$network"
+printf "$(lbl Version) v%s%b\n" "$ver" "$ver_indicator"
+printf "$(lbl Network) ${Y}%s${N}\n" "$network"
 
 block_hex=$(rpc "eth_blockNumber" "")
 
@@ -164,7 +167,7 @@ if [ -n "$block_hex" ]; then
     else
         sync_str="${Y}⟳ syncing${N}"
     fi
-    printf "  ${D}Block${N}    ${C}%-14s${N} ${D}Sync${N}     %b\n" "$block_fmt" "$sync_str"
+    printf "$(lbl Block) ${C}%-14s${N} ${D}Sync${N} %b\n" "$block_fmt" "$sync_str"
 
     # Block time: average over last 10 blocks
     if [ "$block" -gt 10 ]; then
@@ -180,14 +183,14 @@ if [ -n "$block_hex" ]; then
         if [ -n "$t_now" ] && [ -n "$t_prev" ]; then
             diff_ms=$(( ($(printf "%d" "$t_now") - $(printf "%d" "$t_prev")) * 1000 / 10 ))
             if [ "$diff_ms" -ge 1000 ]; then
-                printf "  ${D}Blk time${N} %d.%ds\n" "$((diff_ms / 1000))" "$(( (diff_ms % 1000) / 100 ))"
+                printf "$(lbl 'Blk time') %d.%ds\n" "$((diff_ms / 1000))" "$(( (diff_ms % 1000) / 100 ))"
             else
-                printf "  ${D}Blk time${N} %dms\n" "$diff_ms"
+                printf "$(lbl 'Blk time') %dms\n" "$diff_ms"
             fi
         fi
     fi
 else
-    printf "  ${D}Block${N}    ${R}%-14s${N} ${D}Sync${N}     ${R}%s${N}\n" "unavailable" "—"
+    printf "$(lbl Block) ${R}%-14s${N} ${D}Sync${N} ${R}%s${N}\n" "unavailable" "—"
 fi
 
 since_str=$(systemctl show monad-consensus -p ActiveEnterTimestamp 2>/dev/null | cut -d= -f2)
@@ -195,7 +198,7 @@ if [ -n "$since_str" ] && [ "$since_str" != " " ]; then
     since_epoch=$(date -d "$since_str" +%s 2>/dev/null || echo "")
     if [ -n "$since_epoch" ]; then
         diff_secs=$(($(date +%s) - since_epoch))
-        [ "$diff_secs" -ge 0 ] && printf "  ${D}Uptime${N}   %s\n" "$(human_uptime "$diff_secs")"
+        [ "$diff_secs" -ge 0 ] && printf "$(lbl Uptime) %s\n" "$(human_uptime "$diff_secs")"
     fi
 fi
 
@@ -222,12 +225,12 @@ if [ -f "$LOG" ]; then
 
         if [ -n "$epoch" ]; then
             if [ -n "$epoch_remaining" ]; then
-                printf "  ${D}Epoch${N}    %s  ${D}(%s remaining)${N}\n" "$epoch" "$epoch_remaining"
+                printf "$(lbl Epoch) %s  ${D}(%s remaining)${N}\n" "$epoch" "$epoch_remaining"
             else
-                printf "  ${D}Epoch${N}    %s\n" "$epoch"
+                printf "$(lbl Epoch) %s\n" "$epoch"
             fi
         fi
-        [ -n "$round" ] && printf "  ${D}Round${N}    %s\n" "$(format_number "$round")"
+        [ -n "$round" ] && printf "$(lbl Round) %s\n" "$(format_number "$round")"
 
         # Skipped rounds: measured from recent log window
         first_commit=$(echo "$log_tail" | grep "committing block proposed" | head -1) || first_commit=""
@@ -250,7 +253,7 @@ if [ -f "$LOG" ]; then
                     else
                         skip_color="$R"
                     fi
-                    printf "  ${D}Skipped${N}  ${skip_color}%s${N}/%s rounds ${D}(%s%%)${N}\n" \
+                    printf "$(lbl Skipped) ${skip_color}%s${N}/%s rounds ${D}(%s%%)${N}\n" \
                         "$(format_number "$skipped")" "$(format_number "$round_span")" "$skip_pct"
                 fi
             fi
@@ -268,7 +271,7 @@ if [ -f "$LOG" ]; then
             else
                 vote_color="$R"
             fi
-            printf "  ${D}Voting${N}   ${vote_color}${B}%d%%${N} ${D}(%d/%d rounds)${N}\n" "$vote_pct" "$votes" "$rounds"
+            printf "$(lbl Voting) ${vote_color}${B}%d%%${N} ${D}(%d/%d rounds)${N}\n" "$vote_pct" "$votes" "$rounds"
         fi
 
         # Network participation from QC signers bitvec
@@ -285,17 +288,17 @@ if [ -f "$LOG" ]; then
                 else
                     net_color="$R"
                 fi
-                printf "  ${D}Network${N}  ${net_color}%d/%d signers${N} ${D}(%d%%)${N}\n" "$ones" "$total_bits" "$net_pct"
+                printf "$(lbl Network) ${net_color}%d/%d signers${N} ${D}(%d%%)${N}\n" "$ones" "$total_bits" "$net_pct"
             fi
         fi
 
         # Peers from keepalive packets
         peers=$(echo "$log_tail" | grep -oP 'remote_addr":"\K[^:]+' | sort -u | wc -l) || peers=0
-        [ "$peers" -gt 0 ] && printf "  ${D}Peers${N}    %d\n" "$peers"
+        [ "$peers" -gt 0 ] && printf "$(lbl Peers) %d\n" "$peers"
 
         # Proposals (we were leader)
         proposals=$(echo "$log_tail" | grep -c "proposal stats") || proposals=0
-        [ "$proposals" -gt 0 ] && printf "  ${D}Proposed${N} %d blocks\n" "$proposals"
+        [ "$proposals" -gt 0 ] && printf "$(lbl Proposed) %d blocks\n" "$proposals"
     fi
 fi
 
@@ -307,7 +310,7 @@ if [ -n "$VAL_ID" ]; then
         cd "$HOME/staking-sdk-cli" && \
         python staking-cli/main.py query validator --validator-id "$VAL_ID" --config-path config.toml 2>/dev/null) || staking_output=""
 
-    printf "  ${D}Validator${N}  ${C}${B}#${VAL_ID}${N}\n"
+    printf "$(lbl Validator) ${C}${B}#${VAL_ID}${N}\n"
 
     if [ -n "$staking_output" ]; then
         total_stake=$(echo "$staking_output" | grep "Execution View: Stake" | sed 's/.*│ *\(.*\) *│.*/\1/' | xargs)
@@ -329,25 +332,35 @@ if [ -n "$VAL_ID" ]; then
 
         total_stake_wei=$(echo "$total_stake" | grep -oP '^\d+')
         if [ -n "$total_stake" ] && [ "$total_stake" != "0 wei" ]; then
-            printf "  ${D}Stake${N}      ${G}${B}%s MON${N}\n" "$(format_mon "$total_stake")"
+            printf "$(lbl Stake) ${G}${B}%s MON${N}\n" "$(format_mon "$total_stake")"
         else
-            printf "  ${D}Stake${N}      ${R}none${N}\n"
+            printf "$(lbl Stake) ${R}none${N}\n"
         fi
 
         if [ -n "$delegator_output" ]; then
             my_stake_wei=$(echo "$delegator_output" | grep "^│ Stake" | sed 's/.*│ *\(.*\) *│.*/\1/' | grep -oP '^\d+')
             if [ -n "$my_stake_wei" ] && [ "$my_stake_wei" != "0" ] && [ -n "$total_stake_wei" ] && [ "$total_stake_wei" != "0" ]; then
                 ratio=$(awk "BEGIN { printf \"%.2f\", ${my_stake_wei} * 100 / ${total_stake_wei} }")
-                printf "  ${D}Self-stake${N} %s MON ${D}(%s%%)${N}\n" "$(format_mon "$my_stake_wei wei")" "$ratio"
+                printf "$(lbl 'Self-stake') %s MON ${D}(%s%%)${N}\n" "$(format_mon "$my_stake_wei wei")" "$ratio"
+            fi
+
+            my_pending_wei=$(echo "$delegator_output" | grep "^│ Delta Stake" | sed 's/.*│ *\(.*\) *│.*/\1/' | grep -oP '^\d+')
+            my_pending_epoch=$(echo "$delegator_output" | grep "^│ Delta Epoch" | sed 's/.*│ *\(.*\) *│.*/\1/' | grep -oP '^\d+')
+            if [ -n "$my_pending_wei" ] && [ "$my_pending_wei" != "0" ]; then
+                if [ -n "$my_pending_epoch" ] && [ "$my_pending_epoch" != "0" ]; then
+                    printf "$(lbl Pending) ${C}+%s MON${N} ${D}(activates epoch %s)${N}\n" "$(format_mon "$my_pending_wei wei")" "$my_pending_epoch"
+                else
+                    printf "$(lbl Pending) ${C}+%s MON${N}\n" "$(format_mon "$my_pending_wei wei")"
+                fi
             fi
         fi
 
         if [ -n "$delegators_output" ]; then
             del_count=$(echo "$delegators_output" | grep -c "│.*0x" || echo "0")
-            [ "$del_count" -gt 0 ] && printf "  ${D}Delegators${N} %d\n" "$del_count"
+            [ "$del_count" -gt 0 ] && printf "$(lbl Delegators) %d\n" "$del_count"
         fi
 
-        [ -n "$commission_rate" ] && printf "  ${D}Commission${N} %s\n" "$commission_rate"
+        [ -n "$commission_rate" ] && printf "$(lbl Commission) %s\n" "$commission_rate"
 
         pool_wei=$(echo "$pool_rewards" | grep -oP '^\d+')
 
@@ -372,26 +385,41 @@ if [ -n "$VAL_ID" ]; then
                 my_rewards_mon=$(awk "BEGIN { printf \"%.2f\", ${my_rewards_wei} / 1e18 }")
                 usd_str=$(format_usd "$my_rewards_mon")
 
-                printf "  ${D}Rewards${N}    ${Y}${B}%s MON${N}" "$(format_mon "$my_rewards_wei wei")"
+                printf "$(lbl Rewards) ${Y}${B}%s MON${N}" "$(format_mon "$my_rewards_wei wei")"
                 [ -n "$usd_str" ] && printf "  ${D}(%s)${N}" "$usd_str"
                 echo ""
             else
-                printf "  ${D}Rewards${N}    0 MON\n"
+                printf "$(lbl Rewards) 0 MON\n"
             fi
         else
             if [ -n "$pool_rewards" ] && [ "$pool_rewards" != "0 wei" ]; then
                 pool_mon=$(awk "BEGIN { printf \"%.2f\", ${pool_wei} / 1e18 }")
                 usd_str=$(format_usd "$pool_mon")
-                printf "  ${D}Rewards${N}    ${Y}${B}%s MON${N}" "$(format_mon "$pool_rewards")"
+                printf "$(lbl Rewards) ${Y}${B}%s MON${N}" "$(format_mon "$pool_rewards")"
                 [ -n "$usd_str" ] && printf "  ${D}(%s)${N}" "$usd_str"
                 echo ""
             else
-                printf "  ${D}Rewards${N}    0 MON\n"
+                printf "$(lbl Rewards) 0 MON\n"
             fi
         fi
     else
-        printf "  ${D}Stake${N}      ${D}—${N}\n"
-        printf "  ${D}Rewards${N}    ${D}—${N}\n"
+        printf "$(lbl Stake) ${D}—${N}\n"
+        printf "$(lbl Rewards) ${D}—${N}\n"
+    fi
+
+    if systemctl cat compound-rewards.timer &>/dev/null; then
+        ac_active=$(systemctl is-active compound-rewards.timer 2>/dev/null)
+        if [ "$ac_active" = "active" ]; then
+            ac_next=$(systemctl list-timers compound-rewards.timer --no-pager --no-legend 2>/dev/null \
+                | awk '{print $1, $2, $3}' | head -1)
+            if [ -n "$ac_next" ] && [ "$ac_next" != "  " ]; then
+                printf "$(lbl 'Auto compound') ${G}✓${N} ${D}next %s${N}\n" "$ac_next"
+            else
+                printf "$(lbl 'Auto compound') ${G}✓${N}\n"
+            fi
+        else
+            printf "$(lbl 'Auto compound') ${R}off${N}\n"
+        fi
     fi
 fi
 
@@ -404,7 +432,7 @@ if [ "$sc_s" = "active" ]; then
         sc_last=$(echo "$sc_health" | jq -r '.last_received_at // empty' 2>/dev/null) || sc_last=""
         if [ -n "$sc_txs" ] && [ "$sc_txs" != "0" ]; then
             echo ""
-            mev_line="  ${D}MEV txs${N}  ${C}$(format_number "$sc_txs")${N} received"
+            mev_line="$(lbl 'MEV txs') ${C}$(format_number "$sc_txs")${N} received"
             if [ -n "$sc_last" ]; then
                 last_epoch=$(date -d "$sc_last" +%s 2>/dev/null || echo "")
                 if [ -n "$last_epoch" ]; then
@@ -448,8 +476,8 @@ if [ -n "$VAL_ID" ] && [ "$network" = "mainnet" ]; then
         target_stake=$(hex_to_mon "${stats_raw:192:64}")
         earned_current=$(hex_to_mon "${stats_raw:448:64}")
         echo ""
-        printf "  ${D}shMon Rev${N}     ${Y}${B}%s MON${N}\n" "$earned_current"
-        printf "  ${D}shMon Target${N}  ${C}%s MON${N}\n" "$target_stake"
+        printf "$(lbl 'shMon Rev') ${Y}${B}%s MON${N}\n" "$earned_current"
+        printf "$(lbl 'shMon Target') ${C}%s MON${N}\n" "$target_stake"
     fi
 
     # getValidatorPendingEscrow returns 4 × uint120: last/current pending staking/unstaking
@@ -458,7 +486,7 @@ if [ -n "$VAL_ID" ] && [ "$network" = "mainnet" ]; then
     if [ -n "$esc_raw" ] && [ ${#esc_raw} -ge 256 ]; then
         cur_stake_in=$(hex_to_mon "${esc_raw:128:64}")
         cur_stake_out=$(hex_to_mon "${esc_raw:192:64}")
-        printf "  ${D}shMon Pending${N} ${G}+%s${N} / ${R}-%s${N} MON\n" "$cur_stake_in" "$cur_stake_out"
+        printf "$(lbl 'shMon Pending') ${G}+%s${N} / ${R}-%s${N} MON\n" "$cur_stake_in" "$cur_stake_out"
     fi
 fi
 
@@ -468,8 +496,8 @@ secp=$(cat "$HOME/key/id-secp.pub" 2>/dev/null || echo "")
 bls=$(cat "$HOME/key/id-bls.pub" 2>/dev/null || echo "")
 if [ -n "$secp" ] || [ -n "$bls" ]; then
     echo ""
-    [ -n "$secp" ] && printf "  ${D}SECP  ${secp}${N}\n"
-    [ -n "$bls" ] && printf "  ${D}BLS   ${bls}${N}\n"
+    [ -n "$secp" ] && printf "$(lbl SECP) ${D}${secp}${N}\n"
+    [ -n "$bls" ] && printf "$(lbl BLS) ${D}${bls}${N}\n"
 fi
 
 # ── Resources ────────────────────────────────────────────
@@ -483,7 +511,7 @@ disk_total_h=$(df -h / 2>/dev/null | awk 'NR==2{print $2}')
 disk_pct=$(df / 2>/dev/null | awk 'NR==2{gsub(/%/,"",$5); print $5}')
 if [ -n "$disk_used_raw" ] && [ -n "$disk_total_raw" ]; then
     bar=$(progress_bar "$disk_used_raw" "$disk_total_raw")
-    printf "  ${D}Disk${N}     %b  %s / %s ${D}(%s%%)${N}\n" "$bar" "$disk_used_h" "$disk_total_h" "$disk_pct"
+    printf "$(lbl Disk) %b  %s / %s ${D}(%s%%)${N}\n" "$bar" "$disk_used_h" "$disk_total_h" "$disk_pct"
 fi
 
 mem_used_raw=$(free 2>/dev/null | awk '/Mem:/{print $3}')
@@ -492,7 +520,7 @@ mem_used_h=$(free -h 2>/dev/null | awk '/Mem:/{print $3}')
 mem_total_h=$(free -h 2>/dev/null | awk '/Mem:/{print $2}')
 if [ -n "$mem_used_raw" ] && [ -n "$mem_total_raw" ]; then
     bar=$(progress_bar "$mem_used_raw" "$mem_total_raw")
-    printf "  ${D}Memory${N}   %b  %s / %s\n" "$bar" "$mem_used_h" "$mem_total_h"
+    printf "$(lbl Memory) %b  %s / %s\n" "$bar" "$mem_used_h" "$mem_total_h"
 fi
 
 triedb_size=$(lsblk -ndo SIZE /dev/triedb 2>/dev/null | xargs || echo "")
@@ -522,11 +550,11 @@ if [ -n "$triedb_size" ]; then
             fi
         fi
     fi
-    printf "  ${D}TrieDB${N}   %s" "$triedb_size"
+    printf "$(lbl TrieDB) %s" "$triedb_size"
     [ -n "$nvme_model" ] && printf "  ${D}%s${N}" "$nvme_model"
     echo ""
     if [ -n "$nvme_wear" ] || [ -n "$nvme_temp" ]; then
-        printf "  ${D}NVMe${N}     "
+        printf "$(lbl NVMe) "
         [ -n "$nvme_health" ] && printf "%b" "$nvme_health"
         [ -n "$nvme_wear" ] && printf "  ${D}life %s%%${N}" "$((100 - nvme_wear))"
         [ -n "$nvme_temp" ] && printf "  ${D}%s°C${N}" "$nvme_temp"
