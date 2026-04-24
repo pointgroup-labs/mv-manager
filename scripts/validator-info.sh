@@ -111,7 +111,7 @@ sc_exists=$(systemctl cat fastlane-sidecar &>/dev/null && echo "yes" || echo "")
 
 echo ""
 if [ -n "$sc_exists" ]; then
-    echo -e "  $cs consensus   $es execution   $rs rpc   $scs sidecar"
+    echo -e "  $cs consensus   $es execution   $rs rpc   $scs fastlane"
 else
     echo -e "  $cs consensus   $es execution   $rs rpc"
 fi
@@ -131,8 +131,24 @@ if [ -n "$chain_hex" ]; then
     esac
 fi
 
+latest_ver=""
+if [ "$network" = "mainnet" ] || [ "$network" = "testnet" ]; then
+    latest_ver=$(curl -s --connect-timeout 3 "https://docs.monad.xyz/networks.json" 2>/dev/null \
+        | jq -r ".${network}.monad_version // empty" 2>/dev/null) || latest_ver=""
+fi
+
+ver_indicator=""
+if [ -n "$latest_ver" ]; then
+    if [ "$ver" = "$latest_ver" ]; then
+        ver_indicator=" ${G}✓${N}"
+    else
+        ver_indicator=" ${Y}⬆ ${latest_ver} available${N}"
+    fi
+fi
+
 echo ""
-printf "  ${D}Version${N}  %-14s ${D}Network${N}  ${Y}%s${N}\n" "v${ver}" "$network"
+printf "  ${D}Version${N}  v%s%b\n" "$ver" "$ver_indicator"
+printf "  ${D}Network${N}  ${Y}%s${N}\n" "$network"
 
 block_hex=$(rpc "eth_blockNumber" "")
 
@@ -385,12 +401,10 @@ if [ "$sc_s" = "active" ]; then
     sc_health=$(curl -s --connect-timeout 3 "http://localhost:8765/health" 2>/dev/null) || sc_health=""
     if [ -n "$sc_health" ]; then
         sc_txs=$(echo "$sc_health" | jq -r '.tx_received // empty' 2>/dev/null) || sc_txs=""
-        sc_streamed=$(echo "$sc_health" | jq -r '.tx_streamed // empty' 2>/dev/null) || sc_streamed=""
         sc_last=$(echo "$sc_health" | jq -r '.last_received_at // empty' 2>/dev/null) || sc_last=""
-        if [ -n "$sc_txs" ]; then
+        if [ -n "$sc_txs" ] && [ "$sc_txs" != "0" ]; then
             echo ""
             mev_line="  ${D}MEV txs${N}  ${C}$(format_number "$sc_txs")${N} received"
-            [ -n "$sc_streamed" ] && mev_line+="  ${C}$(format_number "$sc_streamed")${N} streamed"
             if [ -n "$sc_last" ]; then
                 last_epoch=$(date -d "$sc_last" +%s 2>/dev/null || echo "")
                 if [ -n "$last_epoch" ]; then
@@ -404,6 +418,47 @@ if [ "$sc_s" = "active" ]; then
             fi
             echo -e "$mev_line"
         fi
+    fi
+fi
+
+# ── shMonad ──────────────────────────────────────────────
+
+if [ -n "$VAL_ID" ] && [ "$network" = "mainnet" ]; then
+    SHMONAD_ADDR="0x1b68626dca36c7fe922fd2d55e4f631d962de19c"
+    val_hex=$(printf "%064x" "$VAL_ID")
+
+    eth_call() {
+        local selector="$1"
+        curl -s --connect-timeout 3 -X POST "$RPC_URL" \
+          -H "Content-Type: application/json" \
+          -d "{\"jsonrpc\":\"2.0\",\"method\":\"eth_call\",\"params\":[{\"to\":\"${SHMONAD_ADDR}\",\"data\":\"${selector}${val_hex}\"},\"latest\"],\"id\":1}" 2>/dev/null \
+          | jq -r '.result // empty' 2>/dev/null
+    }
+
+    hex_to_mon() {
+        python3 -c "import sys; v=int(sys.argv[1],16); print(f'{v/1e18:.4f}')" "$1" 2>/dev/null || echo "?"
+    }
+
+    # getValidatorStats returns: bool isActive, address coinbase, uint64 lastEpoch,
+    # uint128 targetStakeAmount, uint120 rewardsPayableLast, uint120 earnedRevenueLast,
+    # uint120 rewardsPayableCurrent, uint120 earnedRevenueCurrent
+    stats_raw=$(eth_call "0xd3b9fd72")
+    stats_raw=${stats_raw#0x}
+    if [ -n "$stats_raw" ] && [ ${#stats_raw} -ge 512 ]; then
+        target_stake=$(hex_to_mon "${stats_raw:192:64}")
+        earned_current=$(hex_to_mon "${stats_raw:448:64}")
+        echo ""
+        printf "  ${D}shMon Rev${N}     ${Y}${B}%s MON${N}\n" "$earned_current"
+        printf "  ${D}shMon Target${N}  ${C}%s MON${N}\n" "$target_stake"
+    fi
+
+    # getValidatorPendingEscrow returns 4 × uint120: last/current pending staking/unstaking
+    esc_raw=$(eth_call "0x00601aaf")
+    esc_raw=${esc_raw#0x}
+    if [ -n "$esc_raw" ] && [ ${#esc_raw} -ge 256 ]; then
+        cur_stake_in=$(hex_to_mon "${esc_raw:128:64}")
+        cur_stake_out=$(hex_to_mon "${esc_raw:192:64}")
+        printf "  ${D}shMon Pending${N} ${G}+%s${N} / ${R}-%s${N} MON\n" "$cur_stake_in" "$cur_stake_out"
     fi
 fi
 
