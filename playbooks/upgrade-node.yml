@@ -13,16 +13,33 @@
     - ../group_vars/{{ env }}.yml
 
   tasks:
+    - name: Check installed monad version
+      command: dpkg-query -W -f='${Version}' monad
+      register: installed_version
+      changed_when: false
+      failed_when: false
+
+    - name: Skip if already at target version
+      block:
+        - debug:
+            msg: "monad already at {{ monad_version }}, skipping upgrade"
+        - meta: end_host
+      when:
+        - installed_version.rc == 0
+        - installed_version.stdout == monad_version
+        - not (force_upgrade | default(false) | bool)
+
     - name: Check key dir exists before backup
       stat:
         path: "{{ monad_key_dir }}"
       register: key_dir_stat
 
-    - name: Backup keys and config
+    - name: Backup keys and critical config
       archive:
         path:
           - "{{ monad_key_dir }}"
-          - "{{ monad_config_dir }}"
+          - "{{ monad_node_config_file }}"
+          - "{{ monad_validators_dir }}"
         dest: "{{ monad_home }}/backups/pre-upgrade-{{ monad_version }}-{{ ansible_date_time.iso8601_basic_short }}.tar.gz"
         format: gz
       become_user: "{{ monad_user }}"
