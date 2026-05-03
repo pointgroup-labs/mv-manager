@@ -210,8 +210,8 @@ if [ -f "$LOG" ]; then
 
     if [ -n "$log_tail" ]; then
         # Epoch & round
-        epoch=$(echo "$log_tail" | grep -oP '"epoch":"?\K\d+' | tail -1) || epoch=""
-        round=$(echo "$log_tail" | grep -oP '"round":"?\K\d+' | tail -1) || round=""
+        epoch=$(echo "$log_tail" | grep -oP '"?epoch"?\s*:\s*"?\K\d+' | tail -1) || epoch=""
+        round=$(echo "$log_tail" | grep -oP '"?round"?\s*:\s*"?\K\d+' | tail -1) || round=""
 
         # Epoch remaining: 50,000 blocks/epoch × 0.4s/block ≈ 5.55h
         epoch_remaining=""
