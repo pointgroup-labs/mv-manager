@@ -2,11 +2,13 @@
 # Mainnet-specific configuration
 monad_chain_id: 143
 monad_network_name: "mainnet"
-monad_version: "0.16.1"
-# stays 0.15.1: v0.16.1 ships no monad-mpt --upgrade step (already at MONAD008)
+monad_version: "0.16.2"
+# stays 0.15.1: v0.16.2 ships no monad-mpt --upgrade step (already at MONAD008)
 triedb_migration_version: "0.15.1"
-# MONAD_TEN (MIP-8 Phase B) activates by unix timestamp, not round: 2026-09-02 14:30 UTC
-hardfork_round: 1788359400
+# MONAD_TEN activated 2026-09-02 14:30 UTC (unix 1788359400); Phase C done 2026-09-09, so
+# the node is page-only. Left commented: its only consumer is the fork-readiness reminder,
+# which would otherwise print an already-passed deadline.
+# hardfork_round: 1788359400
 monad_snapshot_url: "https://d3b0ffqjb9bqrg.cloudfront.net"
 monad_validators_config_url: "https://bucket.monadinfra.com/validators/mainnet/validators.toml"
 monad_forkpoint_config_url: "https://bucket.monadinfra.com/forkpoint/mainnet/forkpoint.toml"
