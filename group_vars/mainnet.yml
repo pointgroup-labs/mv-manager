@@ -2,8 +2,9 @@
 # Mainnet-specific configuration
 monad_chain_id: 143
 monad_network_name: "mainnet"
-monad_version: "0.16.2"
-# stays 0.15.1: v0.16.2 ships no monad-mpt --upgrade step (already at MONAD008)
+monad_version: "0.16.4"
+# stays 0.15.1: 0.16.2→0.16.4 ships no monad-mpt --upgrade step (already at MONAD008); the
+# v0.16.3 `--promote-secondary` is for State Archive nodes only — validators skip it
 triedb_migration_version: "0.15.1"
 # MONAD_TEN activated 2026-09-02 14:30 UTC (unix 1788359400); Phase C done 2026-09-09, so
 # the node is page-only. Left commented: its only consumer is the fork-readiness reminder,
