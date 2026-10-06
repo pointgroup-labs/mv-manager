@@ -13,6 +13,10 @@ monad_snapshot_url: "https://d1v5yevi7k4blc.cloudfront.net"
 monad_validators_config_url: "https://bucket.monadinfra.com/validators/testnet/validators.toml"
 monad_forkpoint_config_url: "https://bucket.monadinfra.com/forkpoint/testnet/forkpoint.toml"
 
+# MF pull-scrape of the native Prometheus endpoint; testnet-only per MF (2026-10-06)
+monad_metrics_scrapers:
+  - "84.32.32.227"
+
 bootstrap_peers:
   - name: "mf-testnet-bootstrap-fn-lsn-jfk-006"
     address: "64.31.54.6:8000"

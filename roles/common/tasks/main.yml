@@ -139,6 +139,16 @@
   loop: "{{ firewall_allowed_udp_ports }}"
   tags: [firewall]
 
+- name: Allow metrics scrapers
+  ufw:
+    rule: allow
+    from_ip: "{{ item }}"
+    port: "{{ monad_metrics_port | string }}"
+    proto: tcp
+    comment: "monad metrics scraper"
+  loop: "{{ monad_metrics_scrapers }}"
+  tags: [firewall]
+
 - name: Enable UFW
   ufw:
     state: enabled

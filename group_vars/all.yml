@@ -207,6 +207,9 @@ firewall_allowed_udp_ports:
   - "{{ monad_p2p_port }}"
   - "{{ monad[type | default('validator')].consensus.ports.auth_udp_port | default(8001) }}"
 
+monad_metrics_port: 9143
+monad_metrics_scrapers: []
+
 fail2ban_enabled: true
 fail2ban_maxretry: 5
 fail2ban_bantime: 3600
