@@ -14,6 +14,10 @@ monad_snapshot_url: "https://d3b0ffqjb9bqrg.cloudfront.net"
 monad_validators_config_url: "https://bucket.monadinfra.com/validators/mainnet/validators.toml"
 monad_forkpoint_config_url: "https://bucket.monadinfra.com/forkpoint/mainnet/forkpoint.toml"
 
+# MF pull-scrape of the native Prometheus endpoint (2026-10-06)
+monad_metrics_scrapers:
+  - "84.32.32.227"
+
 bootstrap_peers:
   - name: "mf-mainnet-bootstrap-fn-001"
     address: "64.31.29.190:8000"
